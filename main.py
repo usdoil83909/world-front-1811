@@ -3,18 +3,21 @@ import struct
 import zlib
 from pathlib import Path
 
-WIDTH = HEIGHT = 1024
-PAPER = (246, 243, 234)
-INK = (23, 32, 48)
-RED = (178, 44, 44)
-TEAL = (20, 90, 90)
-OCHRE = (196, 140, 40)
-CREAM = (252, 250, 244)
-GREY = (110, 108, 104)
-DARK_GREY = (60, 58, 56)
-PALE = (200, 205, 215)
+SS = 2
+OUT_W = OUT_H = 1024
+WIDTH = HEIGHT = OUT_W * SS
+
+PAPER = (250, 248, 242)
+INK = (38, 46, 60)
+RED = (188, 72, 72)
+TEAL = (52, 112, 112)
+OCHRE = (206, 160, 72)
+CREAM = (254, 253, 249)
+GREY = (128, 126, 122)
+DARK_GREY = (82, 80, 78)
+PALE = (214, 218, 226)
 WHITE = (255, 255, 255)
-SHADE = (236, 234, 228)
+SHADE = (242, 240, 236)
 
 GLYPH_W = 6
 GLYPH_H = 8
@@ -145,30 +148,34 @@ def wrap_text(text, max_w, scale=1):
 def draw_text(canvas, x, y, text, scale, colour, max_w=None, max_h=None, seen=None):
     if max_w is not None and max_w <= 0 or max_h is not None and max_h <= 0:
         return
-    right = None if max_w is None else x + max_w
-    bottom = None if max_h is None else y + max_h
+    ix = x * SS
+    iy = y * SS
+    ibs = scale * SS
+    iadv = ADVANCE * scale * SS
+    iright = None if max_w is None else ix + max_w * SS
+    ibottom = None if max_h is None else iy + max_h * SS
     for index, char in enumerate(text):
-        gx = x + index * ADVANCE * scale
-        if right is not None and gx >= right:
+        gx = ix + index * iadv
+        if iright is not None and gx >= iright:
             break
         for row_index, row in enumerate(glyph(char)):
-            py = y + row_index * scale
-            if bottom is not None and py >= bottom:
+            py = iy + row_index * ibs
+            if ibottom is not None and py >= ibottom:
                 break
             sy0 = py
-            sy1 = py + scale
-            if bottom is not None:
-                sy1 = min(sy1, bottom)
+            sy1 = py + ibs
+            if ibottom is not None:
+                sy1 = min(sy1, ibottom)
             if sy0 >= sy1:
                 continue
             for col_index, pixel in enumerate(row):
                 if pixel != '#':
                     continue
-                px = gx + col_index * scale
+                px = gx + col_index * ibs
                 sx0 = px
-                sx1 = px + scale
-                if right is not None:
-                    sx1 = min(sx1, right)
+                sx1 = px + ibs
+                if iright is not None:
+                    sx1 = min(sx1, iright)
                 if sx0 >= sx1:
                     continue
                 if seen is not None:
@@ -176,7 +183,7 @@ def draw_text(canvas, x, y, text, scale, colour, max_w=None, max_h=None, seen=No
                     if key in seen:
                         raise RuntimeError(f'glyph pixel painted twice at {key}')
                     seen.add(key)
-                canvas.rect(sx0, sy0, sx1 - sx0, sy1 - sy0, colour)
+                canvas.rect_internal(sx0, sy0, sx1 - sx0, sy1 - sy0, colour)
 
 
 def draw_text_block(canvas, x, y, text, scale, colour, max_w, max_h, align='left', line_gap=None, lines=None):
@@ -205,11 +212,11 @@ class Canvas:
     def __init__(self):
         self.pixels = bytearray(bytes(PAPER) * (WIDTH * HEIGHT))
 
-    def rect(self, x, y, width, height, colour):
-        x0 = max(0, x)
-        y0 = max(0, y)
-        x1 = min(WIDTH, x + width)
-        y1 = min(HEIGHT, y + height)
+    def rect_internal(self, x0, y0, width, height, colour):
+        x0 = max(0, x0)
+        y0 = max(0, y0)
+        x1 = min(WIDTH, x0 + width)
+        y1 = min(HEIGHT, y0 + height)
         if x0 >= x1 or y0 >= y1:
             return
         row = bytes(colour) * (x1 - x0)
@@ -217,34 +224,71 @@ class Canvas:
             start = (yy * WIDTH + x0) * 3
             self.pixels[start:start + len(row)] = row
 
+    def rect(self, x, y, width, height, colour):
+        self.rect_internal(x * SS, y * SS, width * SS, height * SS, colour)
+
     def semi_circle(self, x, y, width, height, colour):
-        cx = x + width / 2.0
-        rx = width / 2.0
-        for yy in range(y, y + height + 1):
-            offset = (y + height - yy) / float(height)
+        ix = x * SS
+        iy = y * SS
+        iw = width * SS
+        ih = height * SS
+        cx = ix + iw / 2.0
+        rx = iw / 2.0
+        for yy in range(iy, iy + ih + 1):
+            offset = (iy + ih - yy) / float(ih)
             span = rx * (1.0 - offset * offset) ** 0.5
             left = int(cx - span)
             right = int(cx + span)
-            self.rect(left, yy, right - left + 1, 1, colour)
+            self.rect_internal(left, yy, right - left + 1, 1, colour)
 
     def arc(self, x, y, width, height, colour, thickness=2):
-        cx = x + width / 2.0
-        rx = width / 2.0
-        base = y + height
-        for yy in range(y, y + height + 1):
-            offset = (base - yy) / float(height)
+        ix = x * SS
+        iy = y * SS
+        iw = width * SS
+        ih = height * SS
+        ith = max(1, thickness * SS)
+        cx = ix + iw / 2.0
+        rx = iw / 2.0
+        base = iy + ih
+        for yy in range(iy, iy + ih + 1):
+            offset = (base - yy) / float(ih)
             if offset < -1.0 or offset > 1.0:
                 continue
             span = rx * (1.0 - offset * offset) ** 0.5
             for edge in (cx - span, cx + span):
-                self.rect(int(round(edge)) - thickness // 2, yy, thickness, 1, colour)
+                self.rect_internal(int(round(edge)) - ith // 2, yy, ith, 1, colour)
+
+    def downsample(self):
+        out = bytearray(OUT_W * OUT_H * 3)
+        src = self.pixels
+        sw = WIDTH * 3
+        for oy in range(OUT_H):
+            sy = oy * SS
+            row0 = sy * sw
+            row1 = row0 + sw
+            for ox in range(OUT_W):
+                sx = ox * SS * 3
+                sx2 = sx + 3
+                i00 = row0 + sx
+                i01 = row0 + sx2
+                i10 = row1 + sx
+                i11 = row1 + sx2
+                r = src[i00] + src[i01] + src[i10] + src[i11]
+                g = src[i00 + 1] + src[i01 + 1] + src[i10 + 1] + src[i11 + 1]
+                b = src[i00 + 2] + src[i01 + 2] + src[i10 + 2] + src[i11 + 2]
+                di = (oy * OUT_W + ox) * 3
+                out[di] = (r + 2) // 4
+                out[di + 1] = (g + 2) // 4
+                out[di + 2] = (b + 2) // 4
+        return out
 
     def write_png(self, path):
         def chunk(kind, data):
             return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff)
 
-        rows = b''.join(b'\0' + self.pixels[y * WIDTH * 3:(y + 1) * WIDTH * 3] for y in range(HEIGHT))
-        header = struct.pack('>IIBBBBB', WIDTH, HEIGHT, 8, 2, 0, 0, 0)
+        out_pixels = self.downsample()
+        rows = b''.join(b'\0' + out_pixels[y * OUT_W * 3:(y + 1) * OUT_W * 3] for y in range(OUT_H))
+        header = struct.pack('>IIBBBBB', OUT_W, OUT_H, 8, 2, 0, 0, 0)
         path.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows, 9)) + chunk(b'IEND', b''))
 
 
@@ -286,12 +330,12 @@ def draw_illustration(canvas, index, x, y):
 
 
 def draw_header(canvas):
-    canvas.rect(0, 0, WIDTH, 96, INK)
+    canvas.rect(0, 0, OUT_W, 96, INK)
     draw_text_block(canvas, 20, 14, 'THE DAY IN WORLD NEWS', 1, WHITE, 400, 9)
     draw_text_block(canvas, 20, 14, '45 STORIES - 6 CONTINENTS - ONE PAGE', 1, WHITE, 984, 9, align='right')
-    draw_text_block(canvas, 0, 30, DATE_TEXT, 6, WHITE, WIDTH, 44, align='center', line_gap=42)
+    draw_text_block(canvas, 0, 30, DATE_TEXT, 6, WHITE, OUT_W, 44, align='center', line_gap=42)
     subtitle = 'Every story here happened, or was first reported, on this day.'
-    draw_text_block(canvas, 0, 82, subtitle, 1, PALE, WIDTH, 9, align='center')
+    draw_text_block(canvas, 0, 82, subtitle, 1, PALE, OUT_W, 9, align='center')
 
 
 def prepare_headline(headline, panel):
@@ -531,7 +575,7 @@ def main():
     draw_numbers(canvas)
     draw_map_and_briefs(canvas)
     footer = 'All stories reported on Wednesday 18 November 2026 - compiled from wire reports - make.fun'
-    draw_text_block(canvas, 0, 1000, footer, 1, GREY, WIDTH, 9, align='center')
+    draw_text_block(canvas, 0, 1000, footer, 1, GREY, OUT_W, 9, align='center')
 
     output = Path(os.environ.get('MAKEFUN_OUTPUT_DIR', 'out'))
     output.mkdir(parents=True, exist_ok=True)
@@ -541,11 +585,11 @@ def main():
     data = path.read_bytes()
     if data[:8] != b'\x89PNG\r\n\x1a\n':
         raise RuntimeError('bad PNG signature')
-    if struct.unpack('>II', data[16:24]) != (WIDTH, HEIGHT):
+    if struct.unpack('>II', data[16:24]) != (OUT_W, OUT_H):
         raise RuntimeError('bad PNG dimensions')
     if len(data) >= 1048576:
         raise RuntimeError('PNG too large')
-    print('ok')
+    print(f'ok {len(data)}')
 
 
 if __name__ == '__main__':
