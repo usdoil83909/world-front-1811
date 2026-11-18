@@ -107,6 +107,26 @@ FONT = {
 }
 
 GLYPHS = {char: tuple(rows.split('/')) for char, rows in FONT.items()}
+COMPACT_ADVANCE = {
+    char: max(row.rfind('#') for row in rows) + 2 if char != ' ' else 3
+    for char, rows in GLYPHS.items()
+}
+
+
+def glyph_corners(rows, x, y):
+    """Find exposed corners so 2x text can soften its outline by one sample."""
+    left = x == 0 or rows[y][x - 1] == '.'
+    right = x == GLYPH_W - 1 or rows[y][x + 1] == '.'
+    top = y == 0 or rows[y - 1][x] == '.'
+    bottom = y == GLYPH_H - 1 or rows[y + 1][x] == '.'
+    return (left and top, right and top, left and bottom, right and bottom)
+
+
+GLYPH_CORNERS = {
+    char: {(x, y): glyph_corners(rows, x, y)
+           for y, row in enumerate(rows) for x, cell in enumerate(row) if cell == '#'}
+    for char, rows in GLYPHS.items()
+}
 
 
 def glyph(char):
@@ -141,14 +161,17 @@ def wrap_text(text, max_w, scale=1):
     return lines or ['']
 
 
-def draw_text(canvas, x, y, text, scale, colour, max_w=None, max_h=None, seen=None):
+def draw_text(canvas, x, y, text, scale, colour, max_w=None, max_h=None, seen=None,
+              compact=False):
     if scale < 2:
         raise ValueError('All printed text must use scale 2 or larger')
     if any(char not in GLYPHS for char in text):
         raise ValueError(f'Unsupported character in {text!r}')
-    if x < 0 or y < 0 or x + text_width(text, scale) > OUT_W or y + 8 * scale > OUT_H:
+    advances = [COMPACT_ADVANCE[char] if compact else ADVANCE for char in text]
+    width = scale * sum(advances)
+    if x < 0 or y < 0 or x + width > OUT_W or y + 8 * scale > OUT_H:
         raise ValueError(f'Text outside page: {text!r}')
-    if max_w is not None and text_width(text, scale) > max_w:
+    if max_w is not None and width > max_w:
         raise ValueError(f'Text exceeds column: {text!r}')
     if max_h is not None and max_h < 8 * scale:
         raise ValueError(f'Text exceeds height: {text!r}')
@@ -157,11 +180,10 @@ def draw_text(canvas, x, y, text, scale, colour, max_w=None, max_h=None, seen=No
     ix = x * SS
     iy = y * SS
     ibs = scale * SS
-    iadv = ADVANCE * scale * SS
     iright = None if max_w is None else ix + max_w * SS
     ibottom = None if max_h is None else iy + max_h * SS
-    for index, char in enumerate(text):
-        gx = ix + index * iadv
+    gx = ix
+    for char, advance in zip(text, advances):
         if iright is not None and gx >= iright:
             break
         for row_index, row in enumerate(glyph(char)):
@@ -189,7 +211,9 @@ def draw_text(canvas, x, y, text, scale, colour, max_w=None, max_h=None, seen=No
                     if key in seen:
                         raise RuntimeError(f'glyph pixel painted twice at {key}')
                     seen.add(key)
-                canvas.rect_internal(sx0, sy0, sx1 - sx0, sy1 - sy0, colour)
+                corners = GLYPH_CORNERS[char][col_index, row_index]
+                canvas.glyph_cell(sx0, sy0, sx1 - sx0, sy1 - sy0, colour, corners)
+        gx += advance * ibs
 
 
 def draw_text_block(canvas, x, y, text, scale, colour, max_w, max_h, align='left', line_gap=None, lines=None):
@@ -235,6 +259,20 @@ class Canvas:
     def rect(self, x, y, width, height, colour):
         self.rect_internal(x * SS, y * SS, width * SS, height * SS, colour)
 
+    def glyph_cell(self, x, y, width, height, colour, corners):
+        offsets = []
+        samples = []
+        for exposed, (cx, cy) in zip(corners, ((x, y), (x + width - 1, y),
+                                              (x, y + height - 1),
+                                              (x + width - 1, y + height - 1))):
+            if exposed:
+                offset = (cy * WIDTH + cx) * 3
+                offsets.append(offset)
+                samples.append(self.pixels[offset:offset + 3])
+        self.rect_internal(x, y, width, height, colour)
+        for offset, sample in zip(offsets, samples):
+            self.pixels[offset:offset + 3] = sample
+
     def paper(self):
         # An ordered, rotated printing screen, never random noise. The broad
         # elliptical paper vignette changes brightness by at most four levels.
@@ -250,7 +288,8 @@ class Canvas:
                 u = (29 * x + 8 * y) % 240 - 120
                 v = (29 * y - 8 * x) % 240 - 120
                 radius = 20 + (16 * x + 11 * y) // WIDTH
-                shade = 11 if u * u + v * v < radius * radius else 0
+                # Ease the edge of each regularly spaced printing dot.
+                shade = max(0, min(9, (radius * radius - u * u - v * v) // 28 + 4))
                 tone = vignette + shade
                 pixels[offset] = PAPER[0] - tone
                 pixels[offset + 1] = PAPER[1] - tone
@@ -325,39 +364,104 @@ MID_STORIES = (
 # exclusively from the original entry's BRIEFS; duplicate APEC, Nvidia and
 # Socceroos entries have been removed. Order groups related regional stories.
 BRIEFS = (
-    ('VOYAGER 1', '24 LIGHT-HOURS AWAY'),
-    ('MEASLES STATUS LOST', 'US, MEXICO, BOLIVIA'),
-    ('INDIA BUS CRASH', 'UTTARAKHAND: 9 DEAD'),
-    ('SUDAN HOLDS HAROUN', 'ICC FUGITIVE HELD'),
-    ('QUAD LEADERS MEET', 'FIRST IN TWO YEARS'),
-    ('TRUMP HINTS AT KIM', 'MAY MEET IN CHINA'),
-    ('AUSTRALIA SANCTIONS', '3 SETTLERS LISTED'),
-    ('JORDAN 2-0 AUS', 'FOOTBALL IN DOHA'),
-    ('UK INFLATION', 'SEEN RISING TO 3.7%'),
-    ('EURO PRICES', 'SEEN UP 4.0%'),
-    ('IMF ON UKRAINE GDP', 'SEES A 0.5% DECLINE'),
-    ('TARA GAS HIT', 'HORMUZ; CREW SAFE'),
-    ('IRAN BUS MOURNING', 'TURNS POLITICAL'),
-    ('NSA NETWORK OUTAGE', 'CLASSIFIED SYSTEM'),
-    ('178 SITES ATTACKED', 'VIA INJECTED CODE'),
-    ('CHASE APP FAULT', 'ACCOUNTS, ZELLE HIT'),
-    ('ANTHROPIC IPO', 'PRICES TODAY'),
-    ('GHANA SPACE AGENCY', 'CABINET APPROVAL'),
-    ('GAMBIA POLL PLEDGE', 'RIVALS VOW PEACE'),
-    ('SOUTH SUDAN VOTE', 'UN: DEC. WARNING'),
-    ('SUDAN PEACE TALKS', 'GENEVA TALKS RESUME'),
-    ('RAMSTEIN: KYIV ASKS', 'FOR INTERCEPTORS'),
-    ('KYIV DEEP STRIKES', 'US OFFICIAL OBJECTS'),
-    ('XI SNUBS TAKAICHI', 'NO BILATERAL TALKS'),
-    ('ODISHA SEA RESCUE', 'COAST GUARD SAVE 27'),
-    ('FRANCE WAGE RISE', '1.6% CALLED TOO LOW'),
-    ('GAZA AID SHORTAGES', 'AGENCIES REPORT'),
-    ('MOSCOW DRONE CLAIM', '1441 DOWN OVERNIGHT'),
-    ('ZAPORIZHZHIA POWER', 'SUBSTATIONS HIT'),
-    ('OIL: BRENT $92.70', 'WTI NEAR $84.39'),
-    ('GOLD SLIPS', '$3,819 AN OUNCE'),
-    ('QESHM EXPLOSIONS', 'REPORTED AGAIN'),
-    ('AUSTRALIA REFUGEES', 'INTAKE CUT PROPOSED'),
+    ('Voyager 1', '24 light-hours away'),
+    ('Measles status lost', 'US, Mexico, Bolivia'),
+    ('India bus crash', 'Uttarakhand: 9 dead'),
+    ('Sudan holds Haroun', 'ICC fugitive held'),
+    ('Quad leaders meet', 'First in two years'),
+    ('Trump hints at Kim', 'May meet in China'),
+    ('Australia sanctions', '3 settlers listed'),
+    ('Jordan 2-0 Australia', 'Football in Doha'),
+    ('UK inflation', 'Seen rising to 3.7%'),
+    ('Euro prices', 'Seen up 4.0%'),
+    ('IMF on Ukraine GDP', 'Sees a 0.5% decline'),
+    ('Tara Gas hit', 'Hormuz; crew safe'),
+    ('Iran bus mourning', 'Turns political'),
+    ('NSA network outage', 'Classified system'),
+    ('178 sites attacked', 'Via injected code'),
+    ('Chase app fault', 'Accounts, Zelle hit'),
+    ('Anthropic IPO', 'Prices today'),
+    ('Ghana space agency', 'Cabinet approval'),
+    ('Gambia poll pledge', 'Rivals vow peace'),
+    ('South Sudan vote', 'UN: Dec. warning'),
+    ('Sudan peace talks', 'Geneva talks resume'),
+    ('Ramstein: Kyiv asks', 'For interceptors'),
+    ('Kyiv deep strikes', 'US official objects'),
+    ('Xi snubs Takaichi', 'No bilateral talks'),
+    ('Odisha sea rescue', 'Coast guard saves 27'),
+    ('France wage rise', '1.6% called too low'),
+    ('Gaza aid shortages', 'Agencies report'),
+    ('Moscow drone claim', '1,441 down overnight'),
+    ('Zaporizhzhia power', 'Substations hit'),
+    ('Oil: Brent $92.70', 'WTI near $84.39'),
+    ('Gold slips', '$3,819 an ounce'),
+    ('Qeshm explosions', 'Reported again'),
+    ('Australia refugees', 'Intake cut proposed'),
+)
+
+# Equirectangular land mask, sampled at cell centers from 84 N, 180 W.
+# Longitude step: 3.75 degrees. Latitude step: 3.5 degrees.
+MAP_ROWS = (
+    '.......................#####..###########.......................................................',
+    '.................####.#####..##############.....................................................',
+    '...............####...######...############.............................#####...................',
+    '......#........#####.#######.....########.........................######################........',
+    '#...#####################.###.....######............#######....##.##############################',
+    '...####################..######...####....##.......###########################################..',
+    '...#.#################....######...##............####..########################################.',
+    '.....##.....############...#####..............#....##.################################...###....',
+    '.............############..####..............###..###################################....##.....',
+    '..............###################.............########################################..........',
+    '...............################................######################################...........',
+    '...............###############.................####.####...########################...#.........',
+    '...............##############................###.....##############################..#..........',
+    '................############.................##.###....#########################.....#..........',
+    '................###########...................#####......#######################...##...........',
+    '.................#########...................###############.###################................',
+    '...................###....#.................#############.###..#################................',
+    '....................##.....#................###################...#############.#...............',
+    '....................###.#...##.............###############.####.....##...####...................',
+    '.......................##..................###################......##...####...#...............',
+    '.........................#..................###############.........#.....###..##...............',
+    '..........................######............#################.......#.....#......#..............',
+    '...........................#######.............##############............##....#................',
+    '...........................########...............##########..............##.####...............',
+    '...........................#########..............##########..............##.##.#..#............',
+    '..........................#############...........#########................#........###.........',
+    '...........................############............########....................#.......#........',
+    '...........................###########.............########..........................#..........',
+    '............................##########.............#######..##...................###.##.........',
+    '.............................########..............#######..#...................#######.........',
+    '.............................########..............######...#.................##########........',
+    '.............................######.................#####.....................###########.......',
+    '.............................######.................####.......................##########.......',
+    '.............................#####...................##........................##...####........',
+    '............................####.....................................................###......#.',
+    '............................####......................................................#.......#.',
+    '............................###.............................................................##..',
+    '............................##..................................................................',
+    '............................##..................................................................',
+    '.............................##.................................................................',
+    '................................................................................................',
+    '................................................................................................',
+    '...............................#................................................................',
+    '.............................###..........................#########...#################.........',
+    '............................###...........##################################################....',
+    '.........########################......######################################################...',
+)
+
+# City, latitude, longitude, and label offsets from the projected point.
+MAP_MARKERS = (
+    ('Bahrain / Gulf', 26.2, 50.6, 0, 16),
+    ('Kerch / Bridge', 45.4, 36.5, 22, 0),
+    ('Shenzhen / APEC', 22.5, 114.1, 0, 9),
+    ('Brasilia / Brazil', -15.8, -47.9, 0, 0),
+    ('Moscow / Drones', 55.8, 37.6, 0, -16),
+    ('Jerusalem / Gaza', 31.8, 35.2, -17, 0),
+    ('Delhi / India', 28.6, 77.2, 0, 0),
+    ('Tokyo / APEC', 35.7, 139.7, 0, 0),
+    ('Lagos / W. Africa', 6.5, 3.4, 0, 0),
+    ('New York / Dow', 40.7, -74.0, 0, 0),
 )
 
 
@@ -417,35 +521,69 @@ def draw_numbers(canvas):
 def draw_mid_grid(canvas):
     for index, (headline, body) in enumerate(MID_STORIES):
         x = 20 + (index % 3) * 336
-        y = 466 + (index // 3) * 94
+        y = 464 + (index // 3) * 85
         lines(canvas, x, y, headline, colour=TEAL)
-        draw_text_block(canvas, x, y + 36, body, 2, INK, 312, 48)
+        draw_text_block(canvas, x, y + 33, body, 2, INK, 312, 46, line_gap=15)
         if index < 3:
-            canvas.rect(x, y + 87, 312, 1, PALE)
+            canvas.rect(x, y + 81, 312, 1, PALE)
         if index % 3 < 2:
-            canvas.rect(x + 323, y, 1, 84, PALE)
+            canvas.rect(x + 323, y, 1, 79, PALE)
 
 
 def draw_briefs(canvas):
-    canvas.rect(20, 654, 984, 3, INK)
-    draw_text(canvas, 20, 666, 'ALSO ON WEDNESDAY', 2, RED)
-    draw_text_block(canvas, 680, 666, f'{len(BRIEFS)} NEWS BRIEFS', 2, RED,
-                    324, 16, align='right')
-    # Nine rows in the first column, eight in the other three. Column order
-    # follows reading order and the last column's spare row carries the date.
-    start = 0
-    for col, count in enumerate((9, 8, 8, 8)):
-        x = 20 + col * 252
-        if col:
-            canvas.rect(x - 13, 692, 1, 286, PALE)
-        for row, (title, body) in enumerate(BRIEFS[start:start + count]):
-            y = 692 + row * 32
-            draw_text(canvas, x, y, title, 2, TEAL, max_w=240)
-            draw_text(canvas, x, y + 16, body, 2, INK, max_w=240)
-        start += count
-    if start != len(BRIEFS):
-        raise RuntimeError('Brief column counts do not cover all stories')
-    lines(canvas, 776, 952, ('ONE DAY.', 'A WORLD OF NEWS.'), colour=RED, width=228)
+    canvas.rect(20, 633, 984, 2, INK)
+    draw_text(canvas, 20, 640, 'ALSO ON WEDNESDAY', 2, RED)
+    draw_text_block(canvas, 412, 640, f'{len(BRIEFS)} NEWS BRIEFS', 2, RED,
+                    192, 16, align='right')
+    for x in (211, 409, 610):
+        canvas.rect(x, 660, 1, 330, PALE)
+    for index, (title, body) in enumerate(BRIEFS):
+        column, row = divmod(index, 11)
+        x = 20 + column * 198
+        y = 660 + row * 30
+        draw_text(canvas, x, y, title, 2, TEAL, max_w=186, compact=True)
+        draw_text(canvas, x, y + 15, body, 2, INK, max_w=186, compact=True)
+
+
+def dotted_rule(canvas, left, right, y, colour):
+    for x in range(left, right, 4):
+        canvas.rect(x, y, 2, 1, colour)
+
+
+def draw_world_map(canvas):
+    left, top, step = 620, 694, 4
+    right = left + 96 * step
+    draw_text(canvas, left, 640, 'WORLD MAP', 2, RED)
+    draw_text_block(canvas, left, 640, '18 NOV / LOCATORS', 2, DARK_GREY,
+                    right - left, 16, align='right')
+    dotted_rule(canvas, left, right, 681, GREY)
+
+    for row_index, row in enumerate(MAP_ROWS):
+        for column, cell in enumerate(row):
+            if cell == '#':
+                canvas.rect(left + column * step, top + row_index * step, 3, 3, GREY)
+
+    pins = []
+    for number, (city, latitude, longitude, dx, dy) in enumerate(MAP_MARKERS, 1):
+        x = left + round((longitude + 180) / 3.75 * step)
+        y = top + round((84 - latitude) / 3.5 * step)
+        if dx or dy:
+            canvas.rect(min(x, x + dx), min(y, y + dy), abs(dx) + 1, abs(dy) + 1, RED)
+            canvas.rect(x - 1, y - 1, 3, 3, RED)
+        pins.append((number, city, x + dx, y + dy))
+
+    dotted_rule(canvas, left, right, 891, GREY)
+    for number, city, x, y in pins:
+        label = str(number)
+        size = 20 if number < 10 else 26
+        canvas.rect(x - size // 2 - 1, y - size // 2 - 1, size + 2, size + 2, PAPER)
+        canvas.rect(x - size // 2, y - size // 2, size, size, RED)
+        draw_text(canvas, x - text_width(label, 2) // 2 + 1, y - 7, label, 2, WHITE)
+        column, row = divmod(number - 1, 5)
+        key_x = left + column * 196
+        key_y = 900 + row * 18
+        draw_text(canvas, key_x, key_y, label, 2, RED)
+        draw_text(canvas, key_x + 28, key_y, city, 2, INK, max_w=160, compact=True)
 
 
 def verify_text_rendering():
@@ -466,7 +604,8 @@ def main():
     draw_numbers(canvas)
     draw_mid_grid(canvas)
     draw_briefs(canvas)
-    canvas.rect(20, 990, 984, 2, INK)
+    draw_world_map(canvas)
+    canvas.rect(20, 995, 984, 2, INK)
     draw_text(canvas, 20, 1000, DATE_TEXT, 2, INK)
     draw_text_block(canvas, 680, 1000, 'WORLD DESK / MAKE.FUN', 2, RED,
                     324, 16, align='right')
