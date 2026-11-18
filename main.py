@@ -16,85 +16,110 @@ PALE = (200, 205, 215)
 WHITE = (255, 255, 255)
 SHADE = (236, 234, 228)
 
-GLYPHS = {
-    'A': '0110/1001/1001/1111/1001/1001/1001',
-    'B': '1110/1001/1001/1110/1001/1001/1110',
-    'C': '0111/1000/1000/1000/1000/1000/0111',
-    'D': '1110/1001/1001/1001/1001/1001/1110',
-    'E': '1111/1000/1000/1110/1000/1000/1111',
-    'F': '1111/1000/1000/1110/1000/1000/1000',
-    'G': '0111/1000/1000/1011/1001/1001/0111',
-    'H': '1001/1001/1001/1111/1001/1001/1001',
-    'I': '1111/0110/0110/0110/0110/0110/1111',
-    'J': '0011/0001/0001/0001/1001/1001/0110',
-    'K': '1001/1001/1010/1100/1010/1001/1001',
-    'L': '1000/1000/1000/1000/1000/1000/1111',
-    'M': '1001/1111/1111/1001/1001/1001/1001',
-    'N': '1001/1101/1101/1011/1011/1001/1001',
-    'O': '0110/1001/1001/1001/1001/1001/0110',
-    'P': '1110/1001/1001/1110/1000/1000/1000',
-    'Q': '0110/1001/1001/1001/1011/0110/0001',
-    'R': '1110/1001/1001/1110/1010/1001/1001',
-    'S': '0111/1000/1000/0110/0001/0001/1110',
-    'T': '1111/0110/0110/0110/0110/0110/0110',
-    'U': '1001/1001/1001/1001/1001/1001/0110',
-    'V': '1001/1001/1001/1001/1001/0110/0110',
-    'W': '1001/1001/1001/1001/1111/1111/1001',
-    'X': '1001/1001/0110/0110/0110/1001/1001',
-    'Y': '1001/1001/1001/0110/0110/0110/0110',
-    'Z': '1111/0001/0010/0110/0100/1000/1111',
-    'a': '0000/0000/0110/1001/1111/1001/0111',
-    'b': '1000/1000/1110/1001/1001/1001/1110',
-    'c': '0000/0000/0111/1000/1000/1000/0111',
-    'd': '0001/0001/0111/1001/1001/1001/0111',
-    'e': '0000/0000/0111/1001/1111/1000/0111',
-    'f': '0010/0100/1110/0100/0100/0100/0100',
-    'g': '0000/0111/1001/1001/0111/0001/0110',
-    'h': '1000/1000/1110/1001/1001/1001/1001',
-    'i': '0110/0000/0110/0110/0110/0110/0110',
-    'j': '0010/0000/0010/0010/0010/1010/0100',
-    'k': '1000/1000/1001/1010/1100/1010/1001',
-    'l': '0110/0110/0110/0110/0110/0110/0110',
-    'm': '0000/0000/1101/1111/1111/1001/1001',
-    'n': '0000/0000/1110/1001/1001/1001/1001',
-    'o': '0000/0000/0110/1001/1001/1001/0110',
-    'p': '0000/1110/1001/1001/1110/1000/1000',
-    'q': '0000/0111/1001/1001/0111/0001/0001',
-    'r': '0000/0000/1011/1100/1000/1000/1000',
-    's': '0000/0000/0111/1000/0110/0001/1110',
-    't': '0100/0100/1110/0100/0100/0100/0011',
-    'u': '0000/0000/1001/1001/1001/1011/0111',
-    'v': '0000/0000/1001/1001/1001/0110/0110',
-    'w': '0000/0000/1001/1001/1111/1111/1001',
-    'x': '0000/0000/1001/0110/0110/0110/1001',
-    'y': '0000/1001/1001/0111/0001/0001/0110',
-    'z': '0000/0000/1111/0010/0100/1000/1111',
-    '0': '0110/1001/1011/1001/1101/1001/0110',
-    '1': '0010/0110/0010/0010/0010/0010/0111',
-    '2': '0110/1001/0001/0010/0100/1000/1111',
-    '3': '1110/0001/0001/0110/0001/0001/1110',
-    '4': '1001/1001/1001/1111/0001/0001/0001',
-    '5': '1111/1000/1000/1110/0001/0001/1110',
-    '6': '0111/1000/1000/1110/1001/1001/0110',
-    '7': '1111/0001/0010/0010/0100/0100/0100',
-    '8': '0110/1001/1001/0110/1001/1001/0110',
-    '9': '0110/1001/1001/0111/0001/0001/1110',
-    ' ': '0000/0000/0000/0000/0000/0000/0000',
-    '.': '0000/0000/0000/0000/0000/0110/0110',
-    ',': '0000/0000/0000/0000/0110/0010/0100',
-    ':': '0000/0110/0110/0000/0110/0110/0000',
-    ';': '0000/0110/0110/0000/0110/0010/0100',
-    "'": '0010/0010/0100/0000/0000/0000/0000',
-    '-': '0000/0000/0000/1111/0000/0000/0000',
-    '%': '1001/0001/0010/0010/0100/1000/1001',
-    '$': '0010/0111/1010/0110/0101/1110/0100',
-    '&': '0110/1001/1010/0100/1011/1001/0111',
-    '/': '0001/0001/0010/0010/0100/1000/1000',
+GLYPH_W = 6
+GLYPH_H = 8
+ADVANCE = 6
+HEADLINE_BOX = (280, 82)
+HEADLINE_SCALE = 3
+HEADLINE_LINE_GAP = 24
+HEADLINE_LINES = 3
+DATE_TEXT = 'WEDNESDAY 18 NOVEMBER 2026'
+
+FONT = {
+    'A': ('.###../#...#./#...#./#####./#...#./#...#./#...#./......'),
+    'B': ('####../#...#./#...#./####../#...#./#...#./####../......'),
+    'C': ('.###../#...#./#...../#...../#...../#...#./.###../......'),
+    'D': ('####../#...#./#...#./#...#./#...#./#...#./####../......'),
+    'E': ('#####./#...../#...../####../#...../#...../#####./......'),
+    'F': ('#####./#...../#...../####../#...../#...../#...../......'),
+    'G': ('.###../#...#./#...../#.###./#...#./#...#./.###../......'),
+    'H': ('#...#./#...#./#...#./#####./#...#./#...#./#...#./......'),
+    'I': ('#####./..#.../..#.../..#.../..#.../..#.../#####./......'),
+    'J': ('..###./...#../...#../...#../#..#../#..#../.##.../......'),
+    'K': ('#...#./#..#../#.#.../##..../#.#.../#..#../#...#./......'),
+    'L': ('#...../#...../#...../#...../#...../#...../#####./......'),
+    'M': ('#...#./##.##./#.#.#./#...#./#...#./#...#./#...#./......'),
+    'N': ('#...#./##..#./#.#.#./#..##./#...#./#...#./#...#./......'),
+    'O': ('.###../#...#./#...#./#...#./#...#./#...#./.###../......'),
+    'P': ('####../#...#./#...#./####../#...../#...../#...../......'),
+    'Q': ('.###../#...#./#...#./#...#./#.#.#./#..#../.##.#./......'),
+    'R': ('####../#...#./#...#./####../#.#.../#..#../#...#./......'),
+    'S': ('.###../#...#./#...../.###../....#./#...#./.###../......'),
+    'T': ('#####./..#.../..#.../..#.../..#.../..#.../..#.../......'),
+    'U': ('#...#./#...#./#...#./#...#./#...#./#...#./.###../......'),
+    'V': ('#...#./#...#./#...#./#...#./#...#./.#.#../..#.../......'),
+    'W': ('#...#./#...#./#...#./#.#.#./#.#.#./##.##./#...#./......'),
+    'X': ('#...#./#...#./.#.#../..#.../.#.#../#...#./#...#./......'),
+    'Y': ('#...#./#...#./.#.#../..#.../..#.../..#.../..#.../......'),
+    'Z': ('#####./...#../..#.../.#..../#...../#...../#####./......'),
+    'a': ('....../....../.##.../..#.../.##.../#.#.../.##.../......'),
+    'b': ('#...../#...../###.../#.#.../###.../#.#.../###.../......'),
+    'c': ('....../....../.##.../#...../#...../#...../.##.../......'),
+    'd': ('..#.../..#.../.##.../#.#.../#.#.../#.#.../.##.../......'),
+    'e': ('....../....../.##.../#.#.../###.../#...../.##.../......'),
+    'f': ('..#.../.#..../###.../.#..../.#..../.#..../.#..../......'),
+    'g': ('....../....../.##.../#.#.../#.#.../.##.../..#.../.##...'),
+    'h': ('#...../#...../###.../#.#.../#.#.../#.#.../#.#.../......'),
+    'i': ('.#..../....../.#..../.#..../.#..../.#..../.#..../......'),
+    'j': ('..#.../....../..#.../..#.../..#.../..#.../..#.../.##...'),
+    'k': ('#...../#...../#.#.../##..../#...../##..../#.#.../......'),
+    'l': ('.#..../.#..../.#..../.#..../.#..../.#..../.#..../......'),
+    'm': ('....../....../##.##./#.#.#./#.#.#./#.#.#./#.#.#./......'),
+    'n': ('....../....../###.../#.#.../#.#.../#.#.../#.#.../......'),
+    'o': ('....../....../.##.../#.#.../#.#.../#.#.../.##.../......'),
+    'p': ('....../....../###.../#.#.../#.#.../###.../#...../#.....'),
+    'q': ('....../....../.##.../#.#.../#.#.../.##.../..#.../..#...'),
+    'r': ('....../....../###.../#.#.../#...../#...../#...../......'),
+    's': ('....../....../.##.../#...../.##.../..#.../###.../......'),
+    't': ('....../.#..../###.../.#..../.#..../.#..../..#.../......'),
+    'u': ('....../....../#.#.../#.#.../#.#.../#.#.../.##.../......'),
+    'v': ('....../....../#.#.../#.#.../#.#.../.##.../..#.../......'),
+    'w': ('....../....../#.#.#./#.#.#./#.#.#./#.#.#./.#.#../......'),
+    'x': ('....../....../#.#.../.##.../..#.../.##.../#.#.../......'),
+    'y': ('....../....../#.#.../#.#.../.##.../..#.../..#.../.##...'),
+    'z': ('....../....../###.../..#.../.#..../#...../###.../......'),
+    '0': ('.###../#...#./#..##./#.#.#./##..#./#...#./.###../......'),
+    '1': ('..#.../.##.../..#.../..#.../..#.../..#.../.###../......'),
+    '2': ('.###../#...#./....#./...#../..#.../.#..../#####./......'),
+    '3': ('####../....#./....#./.###../....#./....#./####../......'),
+    '4': ('...#../..##../.#.#../#..#../#####./...#../...#../......'),
+    '5': ('#####./#...../#...../####../....#./#...#./.###../......'),
+    '6': ('.###../#...../#...../####../#...#./#...#./.###../......'),
+    '7': ('#####./....#./...#../..#.../..#.../..#.../..#.../......'),
+    '8': ('.###../#...#./#...#./.###../#...#./#...#./.###../......'),
+    '9': ('.###../#...#./#...#./.####./....#./...#../.##.../......'),
+    ' ': ('....../....../....../....../....../....../....../......'),
+    '.': ('....../....../....../....../....../.##.../.##.../......'),
+    ',': ('....../....../....../....../....../.##.../.##.../.##...'),
+    ':': ('....../....../.##.../.##.../....../.##.../.##.../......'),
+    ';': ('....../....../.##.../.##.../....../.##.../.##.../.##...'),
+    "'": ('.##.../.##.../....../....../....../....../....../......'),
+    '-': ('....../....../....../....../####../....../....../......'),
+    '%': ('#..##./#.##../..##../.##.../##..../##.#../#..##./......'),
+    '$': ('..#.../.####./#.#.../.###../...#../####../..#.../......'),
+    '&': ('.##.../#..#../#.#.../.#..../#.#.#./#..#../.##.#./......'),
+    '/': ('....#./....#./...#../..#.../.#..../.#..../#...../......'),
+    '!': ('..#.../..#.../..#.../..#.../..#.../..#.../....../..#...'),
+    '?': ('.###../#..#../...#../..##../..#.../....../..#.../......'),
+    '(': ('..##../.#..../.#..../.#..../.#..../.#..../..##../......'),
+    ')': ('..##../...#../...#../...#../...#../...#../..##../......'),
+    '+': ('....../....../..#.../#####./..#.../....../....../......'),
+    '=': ('....../....../....../#####./....../#####./....../......'),
 }
+
+GLYPHS = {char: tuple(rows.split('/')) for char, rows in FONT.items()}
+
+
+def glyph(char):
+    return GLYPHS.get(char, GLYPHS[' '])
+
+
+def glyph_pixels(text):
+    return sum(row.count('#') for char in text for row in glyph(char))
 
 
 def text_width(text, scale=1):
-    return max(0, len(text) * 5 - 1) * scale
+    return len(text) * ADVANCE * scale
 
 
 def wrap_text(text, max_w, scale=1):
@@ -102,7 +127,7 @@ def wrap_text(text, max_w, scale=1):
     line = ''
     for word in text.split():
         if text_width(word, scale) > max_w:
-            word = ''.join(ch for ch in word if text_width(ch, scale) <= max_w)
+            word = ''.join(char for char in word if text_width(char, scale) <= max_w)
         if not word:
             continue
         candidate = f'{line} {word}' if line else word
@@ -117,44 +142,54 @@ def wrap_text(text, max_w, scale=1):
     return lines or ['']
 
 
-def draw_text_clipped(canvas, x, y, text, scale, colour, max_w, max_h):
-    if max_w <= 0 or max_h <= 0:
+def draw_text(canvas, x, y, text, scale, colour, max_w=None, max_h=None, seen=None):
+    if max_w is not None and max_w <= 0 or max_h is not None and max_h <= 0:
         return
-    right = x + max_w
-    bottom = y + max_h
+    right = None if max_w is None else x + max_w
+    bottom = None if max_h is None else y + max_h
     for index, char in enumerate(text):
-        glyph = GLYPHS.get(char, GLYPHS[' ']).split('/')
-        gx = x + index * 5 * scale
-        if gx >= right:
+        gx = x + index * ADVANCE * scale
+        if right is not None and gx >= right:
             break
-        for row_index, row in enumerate(glyph):
+        for row_index, row in enumerate(glyph(char)):
             py = y + row_index * scale
-            if py >= bottom:
+            if bottom is not None and py >= bottom:
                 break
-            sy0 = max(py, y)
-            sy1 = min(py + scale, bottom)
+            sy0 = py
+            sy1 = py + scale
+            if bottom is not None:
+                sy1 = min(sy1, bottom)
             if sy0 >= sy1:
                 continue
             for col_index, pixel in enumerate(row):
-                if pixel != '1':
+                if pixel != '#':
                     continue
                 px = gx + col_index * scale
-                sx0 = max(px, x)
-                sx1 = min(px + scale, right)
-                if sx0 < sx1:
-                    canvas.rect(sx0, sy0, sx1 - sx0, sy1 - sy0, colour)
+                sx0 = px
+                sx1 = px + scale
+                if right is not None:
+                    sx1 = min(sx1, right)
+                if sx0 >= sx1:
+                    continue
+                if seen is not None:
+                    key = (sx0, sy0)
+                    if key in seen:
+                        raise RuntimeError(f'glyph pixel painted twice at {key}')
+                    seen.add(key)
+                canvas.rect(sx0, sy0, sx1 - sx0, sy1 - sy0, colour)
 
 
-def draw_text_block(canvas, x, y, text, scale, colour, max_w, max_h, align='left', line_gap=None):
-    line_px = 7 * scale
-    if max_h < line_px:
+def draw_text_block(canvas, x, y, text, scale, colour, max_w, max_h, align='left', line_gap=None, lines=None):
+    if max_w <= 0 or max_h <= 0:
         return
+    line_px = GLYPH_H * scale
     gap = line_px if line_gap is None else line_gap
-    usable = 1 + (max_h - line_px) // gap
-    lines = wrap_text(text, max_w, scale)[:usable]
-    for index, line in enumerate(lines):
+    usable = max(1, 1 + (max_h - line_px) // gap)
+    if lines is None:
+        lines = wrap_text(text, max_w, scale)
+    for index, line in enumerate(lines[:usable]):
         remaining = max_h - index * gap
-        if remaining < line_px:
+        if remaining <= 0:
             break
         width = text_width(line, scale)
         if align == 'center':
@@ -163,7 +198,7 @@ def draw_text_block(canvas, x, y, text, scale, colour, max_w, max_h, align='left
             lx = x + max_w - width
         else:
             lx = x
-        draw_text_clipped(canvas, lx, y + index * gap, line, scale, colour, max_w, remaining)
+        draw_text(canvas, lx, y + index * gap, line, scale, colour, max_w, remaining)
 
 
 class Canvas:
@@ -216,13 +251,15 @@ class Canvas:
 def draw_illustration(canvas, index, x, y):
     if index == 0:
         canvas.rect(x, y + 42, 286, 30, TEAL)
-        canvas.rect(x + 28, y + 31, 104, 13, OCHRE)
-        canvas.rect(x + 44, y + 24, 72, 9, OCHRE)
-        canvas.rect(x + 60, y + 18, 40, 8, OCHRE)
         canvas.arc(x + 178, y + 8, 64, 42, GREY, 2)
         canvas.rect(x + 205, y + 46, 5, 6, GREY)
         for px, py in ((166, 20), (226, 30), (258, 14)):
             canvas.rect(x + px, y + py, 6, 6, RED)
+        for mx, my in ((38, 18), (106, 8)):
+            canvas.rect(x + mx + 9, y + my + 1, 3, 3, GREY)
+            canvas.rect(x + mx + 2, y + my + 1, 7, 3, GREY)
+            canvas.rect(x + mx, y + my, 3, 1, GREY)
+            canvas.rect(x + mx, y + my + 4, 3, 1, GREY)
     elif index == 1:
         canvas.rect(x, y + 50, 286, 26, TEAL)
         canvas.semi_circle(x + 18, y + 34, 106, 32, TEAL)
@@ -252,14 +289,38 @@ def draw_header(canvas):
     canvas.rect(0, 0, WIDTH, 96, INK)
     draw_text_block(canvas, 20, 14, 'THE DAY IN WORLD NEWS', 1, WHITE, 400, 9)
     draw_text_block(canvas, 20, 14, '45 STORIES - 6 CONTINENTS - ONE PAGE', 1, WHITE, 984, 9, align='right')
-    draw_text_block(canvas, 0, 30, 'WEDNESDAY 18 NOVEMBER 2026', 6, WHITE, WIDTH, 44, align='center', line_gap=42)
+    draw_text_block(canvas, 0, 30, DATE_TEXT, 6, WHITE, WIDTH, 44, align='center', line_gap=42)
     subtitle = 'Every story here happened, or was first reported, on this day.'
     draw_text_block(canvas, 0, 82, subtitle, 1, PALE, WIDTH, 9, align='center')
 
 
+def prepare_headline(headline, panel):
+    original = headline
+    lines = wrap_text(headline, HEADLINE_BOX[0], HEADLINE_SCALE)
+    while len(lines) > HEADLINE_LINES:
+        words = headline.split()
+        if len(words) == 1:
+            raise ValueError(f'lead panel {panel} headline cannot be shortened')
+        headline = ' '.join(words[:-1])
+        lines = wrap_text(headline, HEADLINE_BOX[0], HEADLINE_SCALE)
+    if panel == 1 and headline != original:
+        raise ValueError('lead panel 1 headline must not be shortened')
+    if ' '.join(lines) != headline:
+        raise ValueError(f'lead panel {panel} headline lost text while wrapping')
+    for line in lines:
+        if text_width(line, HEADLINE_SCALE) > HEADLINE_BOX[0]:
+            raise ValueError(f'lead panel {panel} line exceeds 280px: {line}')
+    if HEADLINE_LINES * HEADLINE_LINE_GAP > HEADLINE_BOX[1]:
+        raise ValueError('three headline lines do not fit in the 82px box')
+    print(f'lead panel {panel} wrapped headline lines (scale 3, {HEADLINE_BOX[0]}x{HEADLINE_BOX[1]}):')
+    for line in lines:
+        print(f'  {line}')
+    return lines
+
+
 def draw_leads(canvas):
     leads = [
-        ('1  MIDDLE EAST - CONFLICT', 'US AND IRAN TRADE FIRE OVER BAHRAIN AND QESHM', "Iran's IRGC says its drones struck a US radar at Bahrain's Sheikh Isa base; Iranian media report blasts and smoke over Qeshm island. A tanker was hit in Hormuz and all 24 crew are safe.", RED),
+        ('1  MIDDLE EAST - CONFLICT', 'US AND IRAN TRADE FIRE OVER BAHRAIN', "Iran's IRGC says its drones struck a US radar at Bahrain's Sheikh Isa base; Iranian media report blasts and smoke over Qeshm island. A tanker was hit in Hormuz and all 24 crew are safe.", RED),
         ('2  EUROPE - WAR IN UKRAINE', 'KERCH BRIDGE HIT FOR A SECOND DAY', 'Kyiv mounted its biggest drone raid of the war; Russia says two died and traffic over the Crimea link is halted. Kyiv says 55% of Russian refining is disabled.', INK),
         ('3  ASIA - DIPLOMACY', 'TRUMP, XI AND PUTIN HEAD FOR SHENZHEN', "APEC's 21 leaders meet in Shenzhen today and a US-China-Russia trilateral is expected. Beijing refuses a bilateral with Japan's Takaichi over Taiwan.", TEAL),
     ]
@@ -274,7 +335,9 @@ def draw_leads(canvas):
         canvas.rect(x + 1, y + 1, 294, 4, accent)
         canvas.rect(x + 1, y + 5, 294, 18, INK)
         draw_text_block(canvas, x + 6, y + 8, label, 1, WHITE, 284, 12)
-        draw_text_block(canvas, x + 8, y + 26, headline.upper(), 3, INK, 280, 82, line_gap=24)
+        lines = prepare_headline(headline, index + 1)
+        draw_text_block(canvas, x + 8, y + 26, headline, HEADLINE_SCALE, INK,
+                        HEADLINE_BOX[0], HEADLINE_BOX[1], line_gap=HEADLINE_LINE_GAP, lines=lines)
         draw_text_block(canvas, x + 8, y + 112, body, 1, INK, 280, 72, line_gap=10)
         draw_illustration(canvas, index, x + 5, y + 190)
 
@@ -299,7 +362,7 @@ def draw_mid_grid(canvas):
         canvas.rect(x, y, 1, 100, GREY)
         canvas.rect(x + 295, y, 1, 100, GREY)
         canvas.rect(x + 5, y + 7, 16, 16, INK)
-        draw_text_block(canvas, x + 5, y + 10, str(index + 4), 1, WHITE, 16, 10, align='center')
+        draw_text_block(canvas, x + 5, y + 11, str(index + 4), 1, WHITE, 16, 10, align='center')
         draw_text_block(canvas, x + 24, y + 2, headline.upper(), 2, INK, 264, 36, line_gap=16)
         draw_text_block(canvas, x + 24, y + 42, body, 1, GREY, 264, 36, line_gap=9)
 
@@ -368,42 +431,42 @@ MAP_MARKERS = (
 )
 
 BRIEFS = (
-    '10. VOYAGER 1 - now 24 light-hours from Earth.',
-    '11. MEASLES - US, Mexico, Bolivia lose status.',
-    '12. INDIA - Bus crash in Uttarakhand kills nine.',
-    '13. SUDAN - Army holds ICC fugitive Ahmed Haroun.',
-    '14. APEC OPENS - 21 leaders meet in Shenzhen.',
-    "15. QUAD - First leaders' summit in two years.",
-    '16. KIM MEETING - Trump hints at talks in China.',
-    '17. SANCTIONS - Australia lists three settlers.',
-    '18. FOOTBALL - Jordan beat Australia 2-0 in Doha.',
-    '19. UK INFLATION - Seen rising to 3.7%.',
-    '20. EURO PRICES - Seen up 4.0%.',
-    '21. UKRAINE ECONOMY - IMF sees GDP down 0.5%.',
-    '22. TANKER - Tara Gas hit in Hormuz; crew safe.',
-    '23. IRAN - Bus-crash mourning turns political.',
+    '10. Voyager 1 - now 24 light-hours from Earth.',
+    '11. Measles - US, Mexico, Bolivia lose status.',
+    '12. India - Bus crash in Uttarakhand kills nine.',
+    '13. Sudan - Army holds ICC fugitive Ahmed Haroun.',
+    '14. APEC opens - 21 leaders meet in Shenzhen.',
+    "15. Quad - First leaders' summit in two years.",
+    '16. Kim meeting - Trump hints at talks in China.',
+    '17. Sanctions - Australia lists three settlers.',
+    '18. Football - Jordan beat Australia 2-0 in Doha.',
+    '19. UK inflation - Seen rising to 3.7%.',
+    '20. Euro prices - Seen up 4.0%.',
+    '21. Ukraine economy - IMF sees GDP down 0.5%.',
+    '22. Tanker - Tara Gas hit in Hormuz; crew safe.',
+    '23. Iran - Bus-crash mourning turns political.',
     '24. NSA - Classified network outage.',
-    '25. CYBERATTACK - 178 sites hit via injected code.',
-    '26. BANK APPS - A Chase fault hit accounts, Zelle.',
-    '27. ANTHROPIC - IPO prices today.',
-    '28. NVIDIA - Huang offers to return if asked.',
-    '29. GHANA - Cabinet approves space agency.',
-    '30. GAMBIA - Rivals pledge a peaceful poll.',
-    '31. SOUTH SUDAN - UN warns on December polls.',
-    '32. SUDAN TALKS - Geneva rounds resume.',
-    '33. RAMSTEIN - Kyiv asks for interceptors.',
-    '34. DEEP STRIKES - US official criticises Kyiv.',
-    '35. TAKAICHI - Xi refuses a bilateral meeting.',
-    '36. ODISHA - Coast Guard saves 27 crew.',
-    '37. SOCCEROOS - Beaten 2-0 by Jordan in Doha.',
-    '38. FRANCE - 1.6% wage rise called inadequate.',
-    '39. GAZA - Aid agencies report shortages.',
-    '40. MOSCOW - 1,441 drones downed overnight.',
-    '41. KYIV POWER - Substations hit in Zaporizhzhia.',
-    '42. OIL - Brent near $92.70; WTI $84.39.',
-    '43. GOLD - Slips to $3,819 an ounce.',
-    '44. QESHM - Explosions reported again.',
-    '45. AUSTRALIA - Refugee intake cut proposed.',
+    '25. Cyberattack - 178 sites hit via injected code.',
+    '26. Bank apps - A Chase fault hit accounts, Zelle.',
+    '27. Anthropic - IPO prices today.',
+    '28. Nvidia - Huang offers to return if asked.',
+    '29. Ghana - Cabinet approves space agency.',
+    '30. Gambia - Rivals pledge a peaceful poll.',
+    '31. South Sudan - UN warns on December polls.',
+    '32. Sudan talks - Geneva rounds resume.',
+    '33. Ramstein - Kyiv asks for interceptors.',
+    '34. Deep strikes - US official criticises Kyiv.',
+    '35. Takaichi - Xi refuses a bilateral meeting.',
+    '36. Odisha - Coast Guard saves 27 crew.',
+    '37. Socceroos - Beaten 2-0 by Jordan in Doha.',
+    '38. France - 1.6% wage rise called inadequate.',
+    '39. Gaza - Aid agencies report shortages.',
+    '40. Moscow - 1,441 drones downed overnight.',
+    '41. Kyiv power - Substations hit in Zaporizhzhia.',
+    '42. Oil - Brent near $92.70; WTI $84.39.',
+    '43. Gold - Slips to $3,819 an ounce.',
+    '44. Qeshm - Explosions reported again.',
+    '45. Australia - Refugee intake cut proposed.',
 )
 
 
@@ -429,8 +492,8 @@ def draw_map_and_briefs(canvas):
     draw_text_block(canvas, 372, 672, 'ALSO ON WEDNESDAY 18 NOVEMBER - 36 MORE STORIES', 1, RED, 632, 9)
     canvas.rect(688, 692, 1, 273, DARK_GREY)
     for brief in BRIEFS:
-        if text_width(brief, 1) > 308:
-            raise ValueError(f'Brief exceeds 308px: {brief}')
+        if text_width(brief, 1) > 312:
+            raise ValueError(f'Brief exceeds 312px: {brief}')
     for column_index, x in enumerate((372, 692)):
         for row_index in range(18):
             brief = BRIEFS[column_index * 18 + row_index]
@@ -439,18 +502,35 @@ def draw_map_and_briefs(canvas):
             number = brief[:dot]
             body = brief[dot:]
             number_width = text_width(number, 1)
-            draw_text_clipped(canvas, x, y, number, 1, RED, 308, 10)
-            draw_text_clipped(canvas, x + number_width, y, body, 1, DARK_GREY, 308 - number_width, 10)
+            draw_text(canvas, x, y, number, 1, RED, 312, 10)
+            draw_text(canvas, x + number_width, y, body, 1, DARK_GREY, 312 - number_width, 10)
+
+
+def verify_text_rendering():
+    width = text_width(DATE_TEXT, 6)
+    print(f'date width at scale 6: {width} px (26 chars x 6 advance x 6 scale; advance 7 would give 1092 px)')
+    if width != 936 or width > 1000:
+        raise RuntimeError(f'date width {width} px is not the expected 936 px')
+    samples = ((HEADLINE_SCALE, 'US AND IRAN TRADE FIRE OVER BAHRAIN'),
+               (6, DATE_TEXT), (3, '16.09BN MI'))
+    for scale, text in samples:
+        seen = set()
+        draw_text(Canvas(), 0, 0, text, scale, WHITE, seen=seen)
+        expected = glyph_pixels(text)
+        if len(seen) != expected:
+            raise RuntimeError(f'scale {scale}: {len(seen)} blocks for {expected} font pixels')
+    print('glyph paint check: one scale x scale block per font pixel, no second pass')
 
 
 def main():
+    verify_text_rendering()
     canvas = Canvas()
     draw_header(canvas)
     draw_leads(canvas)
     draw_mid_grid(canvas)
     draw_numbers(canvas)
     draw_map_and_briefs(canvas)
-    footer = 'ALL STORIES REPORTED ON WEDNESDAY 18 NOVEMBER 2026 - COMPILED FROM WIRE REPORTS - MAKE.FUN'
+    footer = 'All stories reported on Wednesday 18 November 2026 - compiled from wire reports - make.fun'
     draw_text_block(canvas, 0, 1000, footer, 1, GREY, WIDTH, 9, align='center')
 
     output = Path(os.environ.get('MAKEFUN_OUTPUT_DIR', 'out'))
