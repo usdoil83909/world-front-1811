@@ -22,10 +22,6 @@ SHADE = (242, 240, 236)
 GLYPH_W = 6
 GLYPH_H = 8
 ADVANCE = 6
-HEADLINE_BOX = (280, 82)
-HEADLINE_SCALE = 3
-HEADLINE_LINE_GAP = 24
-HEADLINE_LINES = 3
 DATE_TEXT = 'WEDNESDAY 18 NOVEMBER 2026'
 
 FONT = {
@@ -146,6 +142,16 @@ def wrap_text(text, max_w, scale=1):
 
 
 def draw_text(canvas, x, y, text, scale, colour, max_w=None, max_h=None, seen=None):
+    if scale < 2:
+        raise ValueError('All printed text must use scale 2 or larger')
+    if any(char not in GLYPHS for char in text):
+        raise ValueError(f'Unsupported character in {text!r}')
+    if x < 0 or y < 0 or x + text_width(text, scale) > OUT_W or y + 8 * scale > OUT_H:
+        raise ValueError(f'Text outside page: {text!r}')
+    if max_w is not None and text_width(text, scale) > max_w:
+        raise ValueError(f'Text exceeds column: {text!r}')
+    if max_h is not None and max_h < 8 * scale:
+        raise ValueError(f'Text exceeds height: {text!r}')
     if max_w is not None and max_w <= 0 or max_h is not None and max_h <= 0:
         return
     ix = x * SS
@@ -194,6 +200,8 @@ def draw_text_block(canvas, x, y, text, scale, colour, max_w, max_h, align='left
     usable = max(1, 1 + (max_h - line_px) // gap)
     if lines is None:
         lines = wrap_text(text, max_w, scale)
+    if len(lines) > usable:
+        raise ValueError(f'Text would be truncated: {text!r}')
     for index, line in enumerate(lines[:usable]):
         remaining = max_h - index * gap
         if remaining <= 0:
@@ -227,36 +235,27 @@ class Canvas:
     def rect(self, x, y, width, height, colour):
         self.rect_internal(x * SS, y * SS, width * SS, height * SS, colour)
 
-    def semi_circle(self, x, y, width, height, colour):
-        ix = x * SS
-        iy = y * SS
-        iw = width * SS
-        ih = height * SS
-        cx = ix + iw / 2.0
-        rx = iw / 2.0
-        for yy in range(iy, iy + ih + 1):
-            offset = (iy + ih - yy) / float(ih)
-            span = rx * (1.0 - offset * offset) ** 0.5
-            left = int(cx - span)
-            right = int(cx + span)
-            self.rect_internal(left, yy, right - left + 1, 1, colour)
-
-    def arc(self, x, y, width, height, colour, thickness=2):
-        ix = x * SS
-        iy = y * SS
-        iw = width * SS
-        ih = height * SS
-        ith = max(1, thickness * SS)
-        cx = ix + iw / 2.0
-        rx = iw / 2.0
-        base = iy + ih
-        for yy in range(iy, iy + ih + 1):
-            offset = (base - yy) / float(ih)
-            if offset < -1.0 or offset > 1.0:
-                continue
-            span = rx * (1.0 - offset * offset) ** 0.5
-            for edge in (cx - span, cx + span):
-                self.rect_internal(int(round(edge)) - ith // 2, yy, ith, 1, colour)
+    def paper(self):
+        # An ordered, rotated printing screen, never random noise. The broad
+        # elliptical paper vignette changes brightness by at most four levels.
+        # Render both at 2x so the fine dots have clean, antialiased edges.
+        pixels = self.pixels
+        xdist = [(2 * x - WIDTH) ** 2 for x in range(WIDTH)]
+        denom = WIDTH * WIDTH + HEIGHT * HEIGHT
+        offset = 0
+        for y in range(HEIGHT):
+            yd = (2 * y - HEIGHT) ** 2
+            for x in range(WIDTH):
+                vignette = min(4, 4 * (xdist[x] + yd) // denom)
+                u = (29 * x + 8 * y) % 240 - 120
+                v = (29 * y - 8 * x) % 240 - 120
+                radius = 20 + (16 * x + 11 * y) // WIDTH
+                shade = 11 if u * u + v * v < radius * radius else 0
+                tone = vignette + shade
+                pixels[offset] = PAPER[0] - tone
+                pixels[offset + 1] = PAPER[1] - tone
+                pixels[offset + 2] = PAPER[2] - tone
+                offset += 3
 
     def downsample(self):
         out = bytearray(OUT_W * OUT_H * 3)
@@ -292,290 +291,185 @@ class Canvas:
         path.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows, 9)) + chunk(b'IEND', b''))
 
 
-def draw_illustration(canvas, index, x, y):
-    if index == 0:
-        canvas.rect(x, y + 42, 286, 30, TEAL)
-        canvas.arc(x + 178, y + 8, 64, 42, GREY, 2)
-        canvas.rect(x + 205, y + 46, 5, 6, GREY)
-        for px, py in ((166, 20), (226, 30), (258, 14)):
-            canvas.rect(x + px, y + py, 6, 6, RED)
-        for mx, my in ((38, 18), (106, 8)):
-            canvas.rect(x + mx + 9, y + my + 1, 3, 3, GREY)
-            canvas.rect(x + mx + 2, y + my + 1, 7, 3, GREY)
-            canvas.rect(x + mx, y + my, 3, 1, GREY)
-            canvas.rect(x + mx, y + my + 4, 3, 1, GREY)
-    elif index == 1:
-        canvas.rect(x, y + 50, 286, 26, TEAL)
-        canvas.semi_circle(x + 18, y + 34, 106, 32, TEAL)
-        canvas.semi_circle(x + 136, y + 34, 106, 32, TEAL)
-        canvas.rect(x + 12, y + 38, 12, 30, INK)
-        canvas.rect(x + 124, y + 38, 12, 30, INK)
-        canvas.rect(x + 242, y + 38, 12, 30, INK)
-        canvas.rect(x + 8, y + 28, 270, 10, INK)
-        canvas.rect(x + 252, y + 12, 6, 6, RED)
-    else:
-        for bx, bh in ((12, 38), (42, 54), (74, 30), (106, 62), (140, 44), (174, 56), (208, 36), (242, 50)):
-            top = 75 - bh
-            canvas.rect(x + bx, y + top, 26, bh, INK)
-            for wy in range(top + 7, 75, 12):
-                canvas.rect(x + bx + 5, y + wy, 5, 5, OCHRE)
-                canvas.rect(x + bx + 15, y + wy, 5, 5, OCHRE)
-        for fx, fc in ((52, RED), (150, WHITE), (224, TEAL)):
-            canvas.rect(x + fx, y + 2, 2, 18, INK)
-            canvas.rect(x + fx + 2, y + 3, 14, 8, fc)
-            if fc == WHITE:
-                canvas.rect(x + fx + 1, y + 2, 16, 1, INK)
-                canvas.rect(x + fx + 1, y + 12, 16, 1, INK)
-                canvas.rect(x + fx + 15, y + 3, 1, 10, INK)
+LEADS = (
+    ('01 / GULF CONFLICT', ('US AND IRAN', 'TRADE FIRE', 'OVER BAHRAIN'),
+     ('IRGC: US RADAR STRUCK.', 'QESHM BLASTS REPORTED.',
+      'TANKER HIT IN HORMUZ;', 'ALL 24 CREW ARE SAFE.'),
+     '24', ('TANKER CREW', 'ALL SAFE'), RED),
+    ('02 / WAR IN EUROPE', ('KERCH BRIDGE', 'HIT FOR A', 'SECOND DAY'),
+     ("KYIV'S BIGGEST DRONE RAID.", 'TWO DEAD, RUSSIA SAYS.',
+      'CRIMEA LINK HALTED;', 'KYIV: REFINING DISABLED.'),
+     '55%', ('RUSSIAN REFINING', 'KYIV SAYS'), RED),
+    ('03 / APEC SHENZHEN', ('TRUMP, XI', 'AND PUTIN', 'HEAD TO APEC'),
+     ('21 LEADERS MEET IN CHINA.', 'A TRILATERAL IS EXPECTED.',
+      'BEIJING SNUBS JAPAN OVER', 'TAIWAN: NO BILATERAL.'),
+     '21', ('APEC LEADERS', 'IN SHENZHEN'), TEAL),
+)
+
+MID_STORIES = (
+    (('NVIDIA POSTS', 'RECORD QUARTER'),
+     '$115.8BN SALES, UP 103%; $130BN OUTLOOK. HUANG OFFERS TO RETURN.'),
+    (('TRUMP TRIP SHADOWED', 'BY US MIDTERMS'),
+     'HE FLIES TO ASIA AFTER DEMOCRATS WIN BOTH CHAMBERS OF CONGRESS.'),
+    (('WALL STREET FALLS', 'FOR FOURTH SESSION'),
+     'DOW -1.6% TO 50,759. FED DECEMBER RISE PRICED AT 95%.'),
+    (("GAZA TRUCE 'FACING", "COLLAPSE' - US BOARD"),
+     'BOARD OF PEACE TELLS UN: REBUILDING HAS STALLED.'),
+    (('FRANCE: 150,000', 'PROTEST OVER PRICES'),
+     "STRIKERS REJECT MACRON'S 1.6% MINIMUM-WAGE RISE."),
+    (('COP31 ENTERS', 'ITS FINAL WEEK'),
+     "DRAFT: 'IMMEDIATE' FOSSIL EXIT; $120BN FOR ADAPTATION."),
+)
+
+# Two complete lines per brief, not clipped excerpts. These are condensed
+# exclusively from the original entry's BRIEFS; duplicate APEC, Nvidia and
+# Socceroos entries have been removed. Order groups related regional stories.
+BRIEFS = (
+    ('VOYAGER 1', '24 LIGHT-HOURS AWAY'),
+    ('MEASLES STATUS LOST', 'US, MEXICO, BOLIVIA'),
+    ('INDIA BUS CRASH', 'UTTARAKHAND: 9 DEAD'),
+    ('SUDAN HOLDS HAROUN', 'ICC FUGITIVE HELD'),
+    ('QUAD LEADERS MEET', 'FIRST IN TWO YEARS'),
+    ('TRUMP HINTS AT KIM', 'MAY MEET IN CHINA'),
+    ('AUSTRALIA SANCTIONS', '3 SETTLERS LISTED'),
+    ('JORDAN 2-0 AUS', 'FOOTBALL IN DOHA'),
+    ('UK INFLATION', 'SEEN RISING TO 3.7%'),
+    ('EURO PRICES', 'SEEN UP 4.0%'),
+    ('IMF ON UKRAINE GDP', 'SEES A 0.5% DECLINE'),
+    ('TARA GAS HIT', 'HORMUZ; CREW SAFE'),
+    ('IRAN BUS MOURNING', 'TURNS POLITICAL'),
+    ('NSA NETWORK OUTAGE', 'CLASSIFIED SYSTEM'),
+    ('178 SITES ATTACKED', 'VIA INJECTED CODE'),
+    ('CHASE APP FAULT', 'ACCOUNTS, ZELLE HIT'),
+    ('ANTHROPIC IPO', 'PRICES TODAY'),
+    ('GHANA SPACE AGENCY', 'CABINET APPROVAL'),
+    ('GAMBIA POLL PLEDGE', 'RIVALS VOW PEACE'),
+    ('SOUTH SUDAN VOTE', 'UN: DEC. WARNING'),
+    ('SUDAN PEACE TALKS', 'GENEVA TALKS RESUME'),
+    ('RAMSTEIN: KYIV ASKS', 'FOR INTERCEPTORS'),
+    ('KYIV DEEP STRIKES', 'US OFFICIAL OBJECTS'),
+    ('XI SNUBS TAKAICHI', 'NO BILATERAL TALKS'),
+    ('ODISHA SEA RESCUE', 'COAST GUARD SAVE 27'),
+    ('FRANCE WAGE RISE', '1.6% CALLED TOO LOW'),
+    ('GAZA AID SHORTAGES', 'AGENCIES REPORT'),
+    ('MOSCOW DRONE CLAIM', '1441 DOWN OVERNIGHT'),
+    ('ZAPORIZHZHIA POWER', 'SUBSTATIONS HIT'),
+    ('OIL: BRENT $92.70', 'WTI NEAR $84.39'),
+    ('GOLD SLIPS', '$3,819 AN OUNCE'),
+    ('QESHM EXPLOSIONS', 'REPORTED AGAIN'),
+    ('AUSTRALIA REFUGEES', 'INTAKE CUT PROPOSED'),
+)
+
+
+def lines(canvas, x, y, content, scale=2, colour=INK, width=312, gap=None):
+    """Print complete, preflighted lines; never silently shrink or truncate."""
+    gap = 8 * scale if gap is None else gap
+    for index, line in enumerate(content):
+        draw_text(canvas, x, y + index * gap, line, scale, colour,
+                  max_w=width, max_h=8 * scale)
 
 
 def draw_header(canvas):
-    canvas.rect(0, 0, OUT_W, 96, INK)
-    draw_text_block(canvas, 20, 14, 'THE DAY IN WORLD NEWS', 1, WHITE, 400, 9)
-    draw_text_block(canvas, 20, 14, '45 STORIES - 6 CONTINENTS - ONE PAGE', 1, WHITE, 984, 9, align='right')
-    draw_text_block(canvas, 0, 30, DATE_TEXT, 6, WHITE, OUT_W, 44, align='center', line_gap=42)
-    subtitle = 'Every story here happened, or was first reported, on this day.'
-    draw_text_block(canvas, 0, 82, subtitle, 1, PALE, OUT_W, 9, align='center')
-
-
-def prepare_headline(headline, panel):
-    original = headline
-    lines = wrap_text(headline, HEADLINE_BOX[0], HEADLINE_SCALE)
-    while len(lines) > HEADLINE_LINES:
-        words = headline.split()
-        if len(words) == 1:
-            raise ValueError(f'lead panel {panel} headline cannot be shortened')
-        headline = ' '.join(words[:-1])
-        lines = wrap_text(headline, HEADLINE_BOX[0], HEADLINE_SCALE)
-    if panel == 1 and headline != original:
-        raise ValueError('lead panel 1 headline must not be shortened')
-    if ' '.join(lines) != headline:
-        raise ValueError(f'lead panel {panel} headline lost text while wrapping')
-    for line in lines:
-        if text_width(line, HEADLINE_SCALE) > HEADLINE_BOX[0]:
-            raise ValueError(f'lead panel {panel} line exceeds 280px: {line}')
-    if HEADLINE_LINES * HEADLINE_LINE_GAP > HEADLINE_BOX[1]:
-        raise ValueError('three headline lines do not fit in the 82px box')
-    print(f'lead panel {panel} wrapped headline lines (scale 3, {HEADLINE_BOX[0]}x{HEADLINE_BOX[1]}):')
-    for line in lines:
-        print(f'  {line}')
-    return lines
+    count = len(LEADS) + len(MID_STORIES) + len(BRIEFS)
+    canvas.rect(20, 10, 984, 2, INK)
+    draw_text(canvas, 20, 18, f'{count} STORIES / 6 CONTINENTS / ONE PAGE', 2, INK)
+    draw_text_block(canvas, 680, 18, 'WEDNESDAY / WORLD DESK', 2, RED, 324, 16, align='right')
+    draw_text(canvas, 16, 40, 'THE WORLD', 10, INK)
+    draw_text_block(canvas, 600, 54, '18 NOV 2026', 6, RED, 404, 48, align='right')
+    canvas.rect(20, 122, 984, 3, INK)
+    canvas.rect(20, 128, 984, 1, INK)
 
 
 def draw_leads(canvas):
-    leads = [
-        ('1  MIDDLE EAST - CONFLICT', 'US AND IRAN TRADE FIRE OVER BAHRAIN', "Iran's IRGC says its drones struck a US radar at Bahrain's Sheikh Isa base; Iranian media report blasts and smoke over Qeshm island. A tanker was hit in Hormuz and all 24 crew are safe.", RED),
-        ('2  EUROPE - WAR IN UKRAINE', 'KERCH BRIDGE HIT FOR A SECOND DAY', 'Kyiv mounted its biggest drone raid of the war; Russia says two died and traffic over the Crimea link is halted. Kyiv says 55% of Russian refining is disabled.', INK),
-        ('3  ASIA - DIPLOMACY', 'TRUMP, XI AND PUTIN HEAD FOR SHENZHEN', "APEC's 21 leaders meet in Shenzhen today and a US-China-Russia trilateral is expected. Beijing refuses a bilateral with Japan's Takaichi over Taiwan.", TEAL),
-    ]
-    for index, (label, headline, body, accent) in enumerate(leads):
-        x = 20 + index * 344
-        y = 104
-        canvas.rect(x, y, 296, 272, CREAM)
-        canvas.rect(x, y, 296, 1, INK)
-        canvas.rect(x, y + 271, 296, 1, INK)
-        canvas.rect(x, y, 1, 272, INK)
-        canvas.rect(x + 295, y, 1, 272, INK)
-        canvas.rect(x + 1, y + 1, 294, 4, accent)
-        canvas.rect(x + 1, y + 5, 294, 18, INK)
-        draw_text_block(canvas, x + 6, y + 8, label, 1, WHITE, 284, 12)
-        lines = prepare_headline(headline, index + 1)
-        draw_text_block(canvas, x + 8, y + 26, headline, HEADLINE_SCALE, INK,
-                        HEADLINE_BOX[0], HEADLINE_BOX[1], line_gap=HEADLINE_LINE_GAP, lines=lines)
-        draw_text_block(canvas, x + 8, y + 112, body, 1, INK, 280, 72, line_gap=10)
-        draw_illustration(canvas, index, x + 5, y + 190)
-
-
-def draw_mid_grid(canvas):
-    stories = [
-        ('NVIDIA POSTS RECORD QUARTER', 'Revenue $115.8bn, up 103%; a $130bn outlook lifts shares, and Huang offers to return.'),
-        ('TRIP SHADOWED BY MIDTERMS', 'Trump flies to Asia after Democrats won both chambers of Congress.'),
-        ('FOURTH STRAIGHT FALL ON WALL ST', 'The Dow drops 1.6% to 50,759; a December Fed rise is priced at 95%.'),
-        ("GAZA TRUCE 'FACING COLLAPSE'", 'The US-led Board of Peace tells the Security Council that rebuilding has stalled.'),
-        ('FRANCE PROTESTS OVER PRICES', "150,000 join strikes and Macron's 1.6% minimum-wage rise is rejected."),
-        ('COP31 ENTERS FINAL WEEK', "The Antalya draft urges an 'immediate' fossil-fuel exit and $120bn for adaptation."),
-    ]
-    for index, (headline, body) in enumerate(stories):
-        col = index % 3
-        row = index // 3
-        x = 20 + col * 344
-        y = 384 + row * 108
-        canvas.rect(x, y, 296, 100, CREAM)
-        canvas.rect(x, y, 296, 1, GREY)
-        canvas.rect(x, y + 99, 296, 1, GREY)
-        canvas.rect(x, y, 1, 100, GREY)
-        canvas.rect(x + 295, y, 1, 100, GREY)
-        canvas.rect(x + 5, y + 7, 16, 16, INK)
-        draw_text_block(canvas, x + 5, y + 11, str(index + 4), 1, WHITE, 16, 10, align='center')
-        draw_text_block(canvas, x + 24, y + 2, headline.upper(), 2, INK, 264, 36, line_gap=16)
-        draw_text_block(canvas, x + 24, y + 42, body, 1, GREY, 264, 36, line_gap=9)
+    for index, (label, headline, body, figure, caption, accent) in enumerate(LEADS):
+        x = 20 + index * 336
+        canvas.rect(x, 138, 312, 20, accent)
+        draw_text(canvas, x + 6, 140, label, 2, WHITE)
+        lines(canvas, x, 166, headline, 3)
+        lines(canvas, x, 242, body)
+        draw_text(canvas, x, 310, figure, 5, accent)
+        caption_x = x + text_width(figure, 5) + 18
+        lines(canvas, caption_x, 312, caption, colour=accent,
+              width=x + 312 - caption_x)
+        if index < 2:
+            canvas.rect(x + 323, 166, 1, 184, PALE)
+    canvas.rect(20, 356, 984, 2, INK)
 
 
 def draw_numbers(canvas):
-    canvas.rect(20, 608, 984, 46, INK)
-    draw_text_block(canvas, 28, 616, 'BY THE NUMBERS', 1, WHITE, 160, 9)
+    draw_text(canvas, 20, 366, 'BY THE NUMBERS', 2, RED)
+    draw_text_block(canvas, 680, 366, 'WHAT MOVED', 2, RED, 324, 16, align='right')
     stats = (
-        ('$115.8BN', 'NVIDIA QUARTER'),
-        ('16.09BN MI', 'VOYAGER 1'),
-        ('55%', 'RUSSIAN REFINING HIT'),
-        ('95%', 'FED RISE PRICED'),
+        ('$92.70', 'BRENT / PER BARREL'),
+        ('$3,819', 'GOLD / PER OUNCE'),
+        ('50,759', 'DOW / -1.6%'),
+        ('+103%', 'NVIDIA SALES / YOY'),
     )
     for index, (figure, label) in enumerate(stats):
-        centre = 292 + index * 204
-        box_x = centre - 95
-        draw_text_block(canvas, box_x, 612, figure, 3, WHITE, 190, 22, align='center', line_gap=21)
-        draw_text_block(canvas, box_x, 637, label, 1, PALE, 190, 9, align='center')
+        x = 20 + index * 252
+        draw_text(canvas, x, 389, figure, 5, INK if index < 3 else TEAL)
+        draw_text(canvas, x, 432, label, 2, DARK_GREY)
+        if index < 3:
+            canvas.rect(x + 239, 391, 1, 53, PALE)
+    canvas.rect(20, 454, 984, 1, INK)
 
 
-MAP_ROWS = (
-    '................................................................',
-    '........................#.......................................',
-    '..##.#.#..............#####.....#.........######.##..#..........',
-    '.#############.#.....#######....##.#....##############..........',
-    '###################...#####.########.#####################......',
-    '.##################.....#...##############################......',
-    '...#################.......###############################......',
-    '..##################.........##############################.....',
-    '...#################.........##############################.....',
-    '....################..........#############################.....',
-    '....#############..............#########################........',
-    '.......#..##.##.#.............##########################........',
-    '...........#.................###########..######..###...........',
-    '.............................##########....#####................',
-    '...............####..........###########.....###....###.........',
-    '................###...........##########...........######.......',
-    '...............######.......############............##..........',
-    '...............######.........#########.........................',
-    '..............######.........##########.........................',
-    '...............######........###########........................',
-    '..............########........##########...........#.#.#........',
-    '..............#######..........#######.............######.......',
-    '...............#####............#####.............########......',
-    '...............#####............####..............#######.......',
-    '...............######.............#................###..........',
-    '................###..................................#..........',
-    '................##.#........................................#...',
-    '.................#........................................####..',
-    '................................................................',
-    '................................##.##..##.......................',
-    '..............................#..##.####........................',
-    '................................................................',
-)
-
-MAP_MARKERS = (
-    (1, 52, 9),
-    (2, 33, 6),
-    (3, 55, 10),
-    (4, 10, 6),
-    (5, 33, 12),
-    (6, 35, 17),
-    (7, 46, 13),
-    (8, 54, 22),
-    (9, 9, 19),
-)
-
-BRIEFS = (
-    '10. Voyager 1 - now 24 light-hours from Earth.',
-    '11. Measles - US, Mexico, Bolivia lose status.',
-    '12. India - Bus crash in Uttarakhand kills nine.',
-    '13. Sudan - Army holds ICC fugitive Ahmed Haroun.',
-    '14. APEC opens - 21 leaders meet in Shenzhen.',
-    "15. Quad - First leaders' summit in two years.",
-    '16. Kim meeting - Trump hints at talks in China.',
-    '17. Sanctions - Australia lists three settlers.',
-    '18. Football - Jordan beat Australia 2-0 in Doha.',
-    '19. UK inflation - Seen rising to 3.7%.',
-    '20. Euro prices - Seen up 4.0%.',
-    '21. Ukraine economy - IMF sees GDP down 0.5%.',
-    '22. Tanker - Tara Gas hit in Hormuz; crew safe.',
-    '23. Iran - Bus-crash mourning turns political.',
-    '24. NSA - Classified network outage.',
-    '25. Cyberattack - 178 sites hit via injected code.',
-    '26. Bank apps - A Chase fault hit accounts, Zelle.',
-    '27. Anthropic - IPO prices today.',
-    '28. Nvidia - Huang offers to return if asked.',
-    '29. Ghana - Cabinet approves space agency.',
-    '30. Gambia - Rivals pledge a peaceful poll.',
-    '31. South Sudan - UN warns on December polls.',
-    '32. Sudan talks - Geneva rounds resume.',
-    '33. Ramstein - Kyiv asks for interceptors.',
-    '34. Deep strikes - US official criticises Kyiv.',
-    '35. Takaichi - Xi refuses a bilateral meeting.',
-    '36. Odisha - Coast Guard saves 27 crew.',
-    '37. Socceroos - Beaten 2-0 by Jordan in Doha.',
-    '38. France - 1.6% wage rise called inadequate.',
-    '39. Gaza - Aid agencies report shortages.',
-    '40. Moscow - 1,441 drones downed overnight.',
-    '41. Kyiv power - Substations hit in Zaporizhzhia.',
-    '42. Oil - Brent near $92.70; WTI $84.39.',
-    '43. Gold - Slips to $3,819 an ounce.',
-    '44. Qeshm - Explosions reported again.',
-    '45. Australia - Refugee intake cut proposed.',
-)
+def draw_mid_grid(canvas):
+    for index, (headline, body) in enumerate(MID_STORIES):
+        x = 20 + (index % 3) * 336
+        y = 466 + (index // 3) * 94
+        lines(canvas, x, y, headline, colour=TEAL)
+        draw_text_block(canvas, x, y + 36, body, 2, INK, 312, 48)
+        if index < 3:
+            canvas.rect(x, y + 87, 312, 1, PALE)
+        if index % 3 < 2:
+            canvas.rect(x + 323, y, 1, 84, PALE)
 
 
-def draw_map_and_briefs(canvas):
-    canvas.rect(20, 662, 356 - 20, 988 - 662, CREAM)
-    canvas.rect(20, 662, 356 - 20, 1, INK)
-    canvas.rect(20, 988 - 1, 356 - 20, 1, INK)
-    canvas.rect(20, 662, 1, 988 - 662, INK)
-    canvas.rect(356 - 1, 662, 1, 988 - 662, INK)
-    draw_text_block(canvas, 30, 672, 'WHERE THE NEWS HAPPENED', 1, RED, 320, 9)
-    for row_index, row in enumerate(MAP_ROWS):
-        for column_index, cell in enumerate(row):
-            if cell == '#':
-                canvas.rect(26 + column_index * 5, 700 + row_index * 5, 4, 4, INK)
-    for digit, column_index, row_index in MAP_MARKERS:
-        marker_x = 26 + column_index * 5 - 4
-        marker_y = 700 + row_index * 5 - 4
-        canvas.rect(marker_x, marker_y, 12, 12, RED)
-        draw_text_block(canvas, marker_x, marker_y + 2, str(digit), 1, WHITE, 12, 10, align='center')
-    draw_text_block(canvas, 30, 928, 'Numbered dots mark stories 1-9.', 1, GREY, 320, 9)
-    draw_text_block(canvas, 30, 944, '45 stories, six continents, one day.', 1, GREY, 320, 9)
-
-    draw_text_block(canvas, 372, 672, 'ALSO ON WEDNESDAY 18 NOVEMBER - 36 MORE STORIES', 1, RED, 632, 9)
-    canvas.rect(688, 692, 1, 273, DARK_GREY)
-    for brief in BRIEFS:
-        if text_width(brief, 1) > 312:
-            raise ValueError(f'Brief exceeds 312px: {brief}')
-    for column_index, x in enumerate((372, 692)):
-        for row_index in range(18):
-            brief = BRIEFS[column_index * 18 + row_index]
-            y = 692 + row_index * 16
-            dot = brief.index('.') + 1
-            number = brief[:dot]
-            body = brief[dot:]
-            number_width = text_width(number, 1)
-            draw_text(canvas, x, y, number, 1, RED, 312, 10)
-            draw_text(canvas, x + number_width, y, body, 1, DARK_GREY, 312 - number_width, 10)
+def draw_briefs(canvas):
+    canvas.rect(20, 654, 984, 3, INK)
+    draw_text(canvas, 20, 666, 'ALSO ON WEDNESDAY', 2, RED)
+    draw_text_block(canvas, 680, 666, f'{len(BRIEFS)} NEWS BRIEFS', 2, RED,
+                    324, 16, align='right')
+    # Nine rows in the first column, eight in the other three. Column order
+    # follows reading order and the last column's spare row carries the date.
+    start = 0
+    for col, count in enumerate((9, 8, 8, 8)):
+        x = 20 + col * 252
+        if col:
+            canvas.rect(x - 13, 692, 1, 286, PALE)
+        for row, (title, body) in enumerate(BRIEFS[start:start + count]):
+            y = 692 + row * 32
+            draw_text(canvas, x, y, title, 2, TEAL, max_w=240)
+            draw_text(canvas, x, y + 16, body, 2, INK, max_w=240)
+        start += count
+    if start != len(BRIEFS):
+        raise RuntimeError('Brief column counts do not cover all stories')
+    lines(canvas, 776, 952, ('ONE DAY.', 'A WORLD OF NEWS.'), colour=RED, width=228)
 
 
 def verify_text_rendering():
-    width = text_width(DATE_TEXT, 6)
-    print(f'date width at scale 6: {width} px (26 chars x 6 advance x 6 scale; advance 7 would give 1092 px)')
-    if width != 936 or width > 1000:
-        raise RuntimeError(f'date width {width} px is not the expected 936 px')
-    samples = ((HEADLINE_SCALE, 'US AND IRAN TRADE FIRE OVER BAHRAIN'),
-               (6, DATE_TEXT), (3, '16.09BN MI'))
-    for scale, text in samples:
+    scratch = Canvas()
+    for scale, text in ((2, 'WORLD / 18.11.2026'), (3, 'KERCH BRIDGE'), (6, '18 NOV 2026')):
         seen = set()
-        draw_text(Canvas(), 0, 0, text, scale, WHITE, seen=seen)
-        expected = glyph_pixels(text)
-        if len(seen) != expected:
-            raise RuntimeError(f'scale {scale}: {len(seen)} blocks for {expected} font pixels')
-    print('glyph paint check: one scale x scale block per font pixel, no second pass')
+        draw_text(scratch, 0, 0, text, scale, INK, seen=seen)
+        if len(seen) != glyph_pixels(text):
+            raise RuntimeError(f'Incorrect glyph paint at scale {scale}')
 
 
 def main():
     verify_text_rendering()
     canvas = Canvas()
+    canvas.paper()
     draw_header(canvas)
     draw_leads(canvas)
-    draw_mid_grid(canvas)
     draw_numbers(canvas)
-    draw_map_and_briefs(canvas)
-    footer = 'All stories reported on Wednesday 18 November 2026 - compiled from wire reports - make.fun'
-    draw_text_block(canvas, 0, 1000, footer, 1, GREY, OUT_W, 9, align='center')
+    draw_mid_grid(canvas)
+    draw_briefs(canvas)
+    canvas.rect(20, 990, 984, 2, INK)
+    draw_text(canvas, 20, 1000, DATE_TEXT, 2, INK)
+    draw_text_block(canvas, 680, 1000, 'WORLD DESK / MAKE.FUN', 2, RED,
+                    324, 16, align='right')
 
     output = Path(os.environ.get('MAKEFUN_OUTPUT_DIR', 'out'))
     output.mkdir(parents=True, exist_ok=True)
@@ -587,9 +481,12 @@ def main():
         raise RuntimeError('bad PNG signature')
     if struct.unpack('>II', data[16:24]) != (OUT_W, OUT_H):
         raise RuntimeError('bad PNG dimensions')
-    if len(data) >= 1048576:
+    if len(data) > 1048576:
         raise RuntimeError('PNG too large')
-    print(f'ok {len(data)}')
+    count = len(LEADS) + len(MID_STORIES) + len(BRIEFS)
+    if not 40 <= count <= 48:
+        raise RuntimeError(f'Expected 40-48 story entries, got {count}')
+    print(f'ok {len(data)} bytes / {OUT_W}x{OUT_H} / {count} stories / minimum text scale 2')
 
 
 if __name__ == '__main__':
