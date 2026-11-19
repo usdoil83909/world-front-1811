@@ -141,16 +141,51 @@ def text_width(text, scale=1):
     return len(text) * ADVANCE * scale
 
 
-def wrap_text(text, max_w, scale=1):
+def wrap_text(text, max_w, scale=1, compact=False):
+    width_of = compact_text_width if compact else text_width
     lines = []
     line = ''
     for word in text.split():
-        if text_width(word, scale) > max_w:
-            word = ''.join(char for char in word if text_width(char, scale) <= max_w)
+        if width_of(word, scale) > max_w:
+            word = ''.join(char for char in word if width_of(char, scale) <= max_w)
         if not word:
             continue
         candidate = f'{line} {word}' if line else word
-        if text_width(candidate, scale) <= max_w:
+        if width_of(candidate, scale) <= max_w:
+            line = candidate
+        else:
+            if line:
+                lines.append(line)
+            line = word
+    if line:
+        lines.append(line)
+    return lines or ['']
+
+
+def compact_text_width(text, scale=1):
+    return scale * sum(COMPACT_ADVANCE[char] for char in text)
+
+
+def wrap_compact_text(text, max_w, scale=1):
+    lines = []
+    line = ''
+    for word in text.split():
+        if compact_text_width(word, scale) > max_w:
+            if line:
+                lines.append(line)
+                line = ''
+            part = ''
+            for char in word:
+                candidate = part + char
+                if part and compact_text_width(candidate, scale) > max_w:
+                    lines.append(part)
+                    part = char
+                else:
+                    part = candidate
+            line = part
+            continue
+        candidate = f'{line} {word}' if line else word
+        if compact_text_width(candidate, scale) <= max_w:
             line = candidate
         else:
             if line:
@@ -162,24 +197,35 @@ def wrap_text(text, max_w, scale=1):
 
 
 def draw_text(canvas, x, y, text, scale, colour, max_w=None, max_h=None, seen=None,
-              compact=False):
+              compact=False, tight_y=False):
     if scale < 2:
         raise ValueError('All printed text must use scale 2 or larger')
+    if tight_y and scale != 2:
+        raise ValueError('Tight vertical text is available only at scale 2')
     if any(char not in GLYPHS for char in text):
         raise ValueError(f'Unsupported character in {text!r}')
     advances = [COMPACT_ADVANCE[char] if compact else ADVANCE for char in text]
     width = scale * sum(advances)
-    if x < 0 or y < 0 or x + width > OUT_W or y + 8 * scale > OUT_H:
+    text_height = 14 if tight_y else 8 * scale
+    if x < 0 or y < 0 or x + width > OUT_W or y + text_height > OUT_H:
         raise ValueError(f'Text outside page: {text!r}')
     if max_w is not None and width > max_w:
         raise ValueError(f'Text exceeds column: {text!r}')
-    if max_h is not None and max_h < 8 * scale:
+    if max_h is not None and max_h < text_height:
         raise ValueError(f'Text exceeds height: {text!r}')
     if max_w is not None and max_w <= 0 or max_h is not None and max_h <= 0:
         return
     ix = x * SS
     iy = y * SS
     ibs = scale * SS
+    if tight_y:
+        # Briefs use a 14-pixel line box so eleven two-line entries fit with
+        # a real 1-pixel interline and inter-item gap in each 330-pixel column.
+        row_offsets = (0, 4, 8, 12, 16, 20, 24, 26)
+        row_heights = (4, 4, 4, 4, 4, 4, 2, 2)
+    else:
+        row_offsets = tuple(row * ibs for row in range(GLYPH_H))
+        row_heights = (ibs,) * GLYPH_H
     iright = None if max_w is None else ix + max_w * SS
     ibottom = None if max_h is None else iy + max_h * SS
     gx = ix
@@ -187,11 +233,11 @@ def draw_text(canvas, x, y, text, scale, colour, max_w=None, max_h=None, seen=No
         if iright is not None and gx >= iright:
             break
         for row_index, row in enumerate(glyph(char)):
-            py = iy + row_index * ibs
+            py = iy + row_offsets[row_index]
             if ibottom is not None and py >= ibottom:
                 break
             sy0 = py
-            sy1 = py + ibs
+            sy1 = py + row_heights[row_index]
             if ibottom is not None:
                 sy1 = min(sy1, ibottom)
             if sy0 >= sy1:
@@ -216,28 +262,30 @@ def draw_text(canvas, x, y, text, scale, colour, max_w=None, max_h=None, seen=No
         gx += advance * ibs
 
 
-def draw_text_block(canvas, x, y, text, scale, colour, max_w, max_h, align='left', line_gap=None, lines=None):
+def draw_text_block(canvas, x, y, text, scale, colour, max_w, max_h, align='left',
+                    line_gap=None, lines=None, compact=False):
     if max_w <= 0 or max_h <= 0:
         return
     line_px = GLYPH_H * scale
     gap = line_px if line_gap is None else line_gap
     usable = max(1, 1 + (max_h - line_px) // gap)
     if lines is None:
-        lines = wrap_text(text, max_w, scale)
+        lines = wrap_text(text, max_w, scale, compact=compact)
     if len(lines) > usable:
         raise ValueError(f'Text would be truncated: {text!r}')
     for index, line in enumerate(lines[:usable]):
         remaining = max_h - index * gap
         if remaining <= 0:
             break
-        width = text_width(line, scale)
+        width = compact_text_width(line, scale) if compact else text_width(line, scale)
         if align == 'center':
             lx = x + (max_w - width) // 2
         elif align == 'right':
             lx = x + max_w - width
         else:
             lx = x
-        draw_text(canvas, lx, y + index * gap, line, scale, colour, max_w, remaining)
+        draw_text(canvas, lx, y + index * gap, line, scale, colour, max_w, remaining,
+                  compact=compact)
 
 
 class Canvas:
@@ -327,7 +375,7 @@ class Canvas:
         out_pixels = self.downsample()
         rows = b''.join(b'\0' + out_pixels[y * OUT_W * 3:(y + 1) * OUT_W * 3] for y in range(OUT_H))
         header = struct.pack('>IIBBBBB', OUT_W, OUT_H, 8, 2, 0, 0, 0)
-        path.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows, 9)) + chunk(b'IEND', b''))
+        path.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows, 8)) + chunk(b'IEND', b''))
 
 
 LEADS = (
@@ -413,14 +461,14 @@ MAP_ROWS = (
     '.............############..####..............###..###################################....##.....',
     '..............###################.............########################################..........',
     '...............################................######################################...........',
-    '...............###############.................####.####...########################...#.........',
+    '...............###############.................####.####..#########################...#.........',
     '...............##############................###.....##############################..#..........',
     '................############.................##.###....#########################.....#..........',
-    '................###########...................#####......#######################...##...........',
+    '................###########...................#####......#######################...###..........',
     '.................#########...................###############.###################................',
     '...................###....#.................#############.###..#################................',
     '....................##.....#................###################...#############.#...............',
-    '....................###.#...##.............###############.####.....##...####...................',
+    '....................###.#...##.............###############.####.....##...######.................',
     '.......................##..................###################......##...####...#...............',
     '.........................#..................###############.........#.....###..##...............',
     '..........................######............#################.......#.....#......#..............',
@@ -452,14 +500,14 @@ MAP_ROWS = (
 
 # City, latitude, longitude, and label offsets from the projected point.
 MAP_MARKERS = (
-    ('Bahrain / Gulf', 26.2, 50.6, 0, 16),
-    ('Kerch / Bridge', 45.4, 36.5, 22, 0),
-    ('Shenzhen / APEC', 22.5, 114.1, 0, 9),
+    ('Bahrain / Gulf', 26.2, 50.6, 10, -14),
+    ('Kerch / Bridge', 45.4, 36.5, 0, 0),
+    ('Shenzhen / APEC', 22.5, 114.1, 0, 0),
     ('Brasilia / Brazil', -15.8, -47.9, 0, 0),
-    ('Moscow / Drones', 55.8, 37.6, 0, -16),
-    ('Jerusalem / Gaza', 31.8, 35.2, -17, 0),
-    ('Delhi / India', 28.6, 77.2, 0, 0),
-    ('Tokyo / APEC', 35.7, 139.7, 0, 0),
+    ('Moscow / Drones', 55.8, 37.6, 20, -10),
+    ('Jerusalem / Gaza', 31.8, 35.2, 8, 14),
+    ('Delhi / India', 28.6, 77.2, 16, -16),
+    ('Tokyo / APEC', 35.7, 139.7, 26, -8),
     ('Lagos / W. Africa', 6.5, 3.4, 0, 0),
     ('New York / Dow', 40.7, -74.0, 0, 0),
 )
@@ -487,6 +535,11 @@ def draw_header(canvas):
 def draw_leads(canvas):
     for index, (label, headline, body, figure, caption, accent) in enumerate(LEADS):
         x = 20 + index * 336
+        headline_bottom = 166 + len(headline) * 24
+        body_bottom = 242 + len(body) * 16
+        caption_bottom = 312 + len(caption) * 16
+        if headline_bottom > 242 or body_bottom > 310 or caption_bottom > 356:
+            raise RuntimeError(f'Lead card {index + 1} exceeds its bounds')
         canvas.rect(x, 138, 312, 20, accent)
         draw_text(canvas, x + 6, 140, label, 2, WHITE)
         lines(canvas, x, 166, headline, 3)
@@ -522,12 +575,18 @@ def draw_mid_grid(canvas):
     for index, (headline, body) in enumerate(MID_STORIES):
         x = 20 + (index % 3) * 336
         y = 464 + (index // 3) * 85
+        body_lines = wrap_text(body, 312, 2)
+        card_bottom = y + 83 if index < 3 else 633
+        headline_bottom = y + len(headline) * 16
+        body_bottom = y + 33 + len(body_lines) * 16
+        if headline_bottom + 1 > y + 33 or body_bottom > card_bottom:
+            raise RuntimeError(f'Mid-grid card {index + 1} exceeds its bounds')
         lines(canvas, x, y, headline, colour=TEAL)
-        draw_text_block(canvas, x, y + 33, body, 2, INK, 312, 46, line_gap=15)
+        draw_text_block(canvas, x, y + 33, body, 2, INK, 312, 48, line_gap=16)
         if index < 3:
-            canvas.rect(x, y + 81, 312, 1, PALE)
+            canvas.rect(x, y + 83, 312, 1, PALE)
         if index % 3 < 2:
-            canvas.rect(x + 323, y, 1, 79, PALE)
+            canvas.rect(x + 323, y, 1, 83, PALE)
 
 
 def draw_briefs(canvas):
@@ -537,12 +596,36 @@ def draw_briefs(canvas):
                     192, 16, align='right')
     for x in (211, 409, 610):
         canvas.rect(x, 660, 1, 330, PALE)
-    for index, (title, body) in enumerate(BRIEFS):
-        column, row = divmod(index, 11)
+    column_bottom = 990
+    line_height = 14
+    item_gap = 1
+    visible = 0
+    per_column = (len(BRIEFS) + 2) // 3
+    for column in range(3):
         x = 20 + column * 198
-        y = 660 + row * 30
-        draw_text(canvas, x, y, title, 2, TEAL, max_w=186, compact=True)
-        draw_text(canvas, x, y + 15, body, 2, INK, max_w=186, compact=True)
+        column_y = 660
+        start = column * per_column
+        entries = BRIEFS[start:start + per_column]
+        for title, body in entries:
+            title_lines = wrap_compact_text(title, 186, 2)
+            body_lines = wrap_compact_text(body, 186, 2)
+            content = [(line, TEAL) for line in title_lines]
+            content.extend((line, INK) for line in body_lines)
+            line_gap = 1
+            needed = (len(content) * line_height +
+                      max(0, len(content) - 1) * line_gap + item_gap)
+            if column_y + needed > column_bottom:
+                break
+            y = column_y
+            for line_index, (line, colour) in enumerate(content):
+                draw_text(canvas, x, y, line, 2, colour, max_w=186,
+                          compact=True, tight_y=True)
+                y += line_height
+                if line_index + 1 < len(content):
+                    y += line_gap
+            column_y = y + item_gap
+            visible += 1
+    return visible
 
 
 def dotted_rule(canvas, left, right, y, colour):
@@ -550,14 +633,37 @@ def dotted_rule(canvas, left, right, y, colour):
         canvas.rect(x, y, 2, 1, colour)
 
 
+def draw_map_connector(canvas, x0, y0, x1, y1, colour):
+    dx = abs(x1 - x0)
+    sx = 1 if x0 < x1 else -1
+    dy = -abs(y1 - y0)
+    sy = 1 if y0 < y1 else -1
+    error = dx + dy
+    while True:
+        canvas.rect(x0, y0, 1, 1, colour)
+        if x0 == x1 and y0 == y1:
+            break
+        twice_error = 2 * error
+        if twice_error >= dy:
+            error += dy
+            x0 += sx
+        if twice_error <= dx:
+            error += dx
+            y0 += sy
+
+
 def draw_world_map(canvas):
     left, top, step = 620, 694, 4
-    right = left + 96 * step
+    map_width = 96
+    map_height = len(MAP_ROWS)
+    right = left + map_width * step
     draw_text(canvas, left, 640, 'WORLD MAP', 2, RED)
     draw_text_block(canvas, left, 640, '18 NOV / LOCATORS', 2, DARK_GREY,
                     right - left, 16, align='right')
     dotted_rule(canvas, left, right, 681, GREY)
 
+    if any(len(row) != map_width for row in MAP_ROWS):
+        raise RuntimeError('Map rows must share a single 96-cell grid')
     for row_index, row in enumerate(MAP_ROWS):
         for column, cell in enumerate(row):
             if cell == '#':
@@ -565,23 +671,39 @@ def draw_world_map(canvas):
 
     pins = []
     for number, (city, latitude, longitude, dx, dy) in enumerate(MAP_MARKERS, 1):
-        x = left + round((longitude + 180) / 3.75 * step)
-        y = top + round((84 - latitude) / 3.5 * step)
-        if dx or dy:
-            canvas.rect(min(x, x + dx), min(y, y + dy), abs(dx) + 1, abs(dy) + 1, RED)
-            canvas.rect(x - 1, y - 1, 3, 3, RED)
-        pins.append((number, city, x + dx, y + dy))
+        column = round((longitude + 180) / 3.75)
+        row = round((84 - latitude) / 3.5)
+        if not (0 <= row < map_height and 0 <= column < map_width):
+            raise RuntimeError(f'Map locator {number} lies outside the map grid')
+        if MAP_ROWS[row][column] != '#':
+            raise RuntimeError(f'Map locator {number} does not sit on land')
+        x = left + column * step + step // 2
+        y = top + row * step + step // 2
+        pins.append((number, city, x, y, x + dx, y + dy))
+
+    for _, _, x, y, label_x, label_y in pins:
+        if (x, y) != (label_x, label_y):
+            draw_map_connector(canvas, x, y, label_x, label_y, RED)
+        canvas.rect(x - 1, y - 1, 3, 3, RED)
 
     dotted_rule(canvas, left, right, 891, GREY)
-    for number, city, x, y in pins:
+    badge_boxes = []
+    for number, city, _, _, x, y in pins:
         label = str(number)
         size = 20 if number < 10 else 26
-        canvas.rect(x - size // 2 - 1, y - size // 2 - 1, size + 2, size + 2, PAPER)
-        canvas.rect(x - size // 2, y - size // 2, size, size, RED)
+        box = (x - size // 2, y - size // 2, x + size // 2, y + size // 2)
+        for other in badge_boxes:
+            if box[0] < other[2] and other[0] < box[2] and box[1] < other[3] and other[1] < box[3]:
+                raise RuntimeError(f'Map locator badge {number} overlaps another badge')
+        badge_boxes.append(box)
+        canvas.rect(box[0] - 1, box[1] - 1, size + 2, size + 2, PAPER)
+        canvas.rect(box[0], box[1], size, size, RED)
         draw_text(canvas, x - text_width(label, 2) // 2 + 1, y - 7, label, 2, WHITE)
         column, row = divmod(number - 1, 5)
         key_x = left + column * 196
         key_y = 900 + row * 18
+        if compact_text_width(city, 2) > 160 or key_y + 16 > 990:
+            raise RuntimeError(f'Map legend entry {number} exceeds its grid')
         draw_text(canvas, key_x, key_y, label, 2, RED)
         draw_text(canvas, key_x + 28, key_y, city, 2, INK, max_w=160, compact=True)
 
@@ -595,8 +717,16 @@ def verify_text_rendering():
             raise RuntimeError(f'Incorrect glyph paint at scale {scale}')
 
 
+def verify_brief_text():
+    for title, body in BRIEFS:
+        for text in (title, body):
+            if not text.isascii() or text.strip() != text or '  ' in text:
+                raise RuntimeError(f'Brief text is not clean ASCII with single spaces: {text!r}')
+
+
 def main():
     verify_text_rendering()
+    verify_brief_text()
     canvas = Canvas()
     canvas.paper()
     draw_header(canvas)
